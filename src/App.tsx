@@ -49,6 +49,9 @@ function App() {
     mimeType: string;
     createdAt: number;
     url: string;
+    memoryId: string;
+    memoryDate: string;
+    memoryNote: string;
   }>>([]);
 
   // 要删除的记忆ID
@@ -145,22 +148,39 @@ function App() {
   // 处理图片点击
   const handleImageClick = useCallback(async (memoryId: string, photoIndex: number) => {
     try {
-      const photos = await getPhotosByMemoryId(memoryId);
-      const photosWithUrls = photos.map(photo => {
-        const url = URL.createObjectURL(photo.blob);
-        return {
-          ...photo,
-          url
-        };
-      });
+      // 创建全局图片列表，包含所有记忆的图片
+      const allPhotos = await Promise.all(
+        memories.map(async (memory) => {
+          const photos = await getPhotosByMemoryId(memory.id);
+          return photos.map(photo => ({
+            ...photo,
+            memoryId: memory.id,
+            memoryDate: memory.date,
+            memoryNote: memory.note
+          }));
+        })
+      );
+      
+      // 扁平化为一维数组并按创建时间排序
+      const flatPhotos = allPhotos.flat().sort((a, b) => a.createdAt - b.createdAt);
+      
+      // 查找当前点击的图片在全局列表中的索引
+      const targetPhoto = await getPhotosByMemoryId(memoryId);
+      const targetGlobalIndex = flatPhotos.findIndex(photo => photo.id === targetPhoto[photoIndex].id);
+      
+      // 为所有图片创建URL
+      const photosWithUrls = flatPhotos.map(photo => ({
+        ...photo,
+        url: URL.createObjectURL(photo.blob)
+      }));
 
       setViewerPhotos(photosWithUrls);
-      setCurrentPhotoIndex(photoIndex);
+      setCurrentPhotoIndex(targetGlobalIndex);
       setIsImageViewerOpen(true);
     } catch (err) {
       console.error('加载图片失败:', err);
     }
-  }, [getPhotosByMemoryId]);
+  }, [getPhotosByMemoryId, memories]);
 
   // 关闭图片查看器
   const handleCloseImageViewer = useCallback(() => {
@@ -232,15 +252,6 @@ function App() {
             existingPhotos={existingPhotos}
           />
 
-          {/* 图片查看器 */}
-          <ImageViewer
-            isOpen={isImageViewerOpen}
-            onClose={handleCloseImageViewer}
-            images={viewerPhotos}
-            currentIndex={currentPhotoIndex}
-            onIndexChange={setCurrentPhotoIndex}
-          />
-
           {/* 删除确认对话框 */}
           {isDeleteConfirmOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -270,6 +281,15 @@ function App() {
           )}
         </>
       )}
+
+      {/* 图片查看器 - 始终渲染，根据isOpen状态决定是否显示 */}
+      <ImageViewer
+        isOpen={isImageViewerOpen}
+        onClose={handleCloseImageViewer}
+        images={viewerPhotos}
+        currentIndex={currentPhotoIndex}
+        onIndexChange={setCurrentPhotoIndex}
+      />
     </div>
   );
 }

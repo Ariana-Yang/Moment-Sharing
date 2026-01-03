@@ -193,15 +193,16 @@ export const Timeline = ({
                   <div
                     key={photo.id}
                     className="relative group"
+                    onClick={() => onImageClick(memory.id, index)}
                   >
                     <img
                       src={photo.url}
                       alt={`记忆图片 ${index + 1}`}
                       className="w-full h-40 md:h-56 object-cover rounded-md cursor-pointer transition-transform duration-300 group-hover:scale-105"
-                      onClick={() => onImageClick(memory.id, index)}
+                      onClick={(e) => e.stopPropagation()}
                     />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center">
-                      <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={24} />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center cursor-pointer">
+                      <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" size={24} />
                     </div>
                   </div>
                 ))}
