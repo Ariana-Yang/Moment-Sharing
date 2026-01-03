@@ -15,6 +15,7 @@ interface TimelineProps {
     mimeType: string;
     createdAt: number;
   }>>;
+  isEditMode: boolean;
 }
 
 export const Timeline = ({ 
@@ -23,7 +24,8 @@ export const Timeline = ({
   onEdit, 
   onDelete, 
   onImageClick,
-  getPhotosByMemoryId
+  getPhotosByMemoryId,
+  isEditMode
 }: TimelineProps) => {
   // 存储每个记忆的图片URL
   const [imageUrls, setImageUrls] = useState<Record<string, ImageWithUrl[]>>({});
@@ -37,11 +39,6 @@ export const Timeline = ({
   // 处理图片加载
   const loadImages = useCallback(async (memoryId: string) => {
     try {
-      // 先清理旧的URL，防止内存泄漏
-      if (urlRefs.current[memoryId]) {
-        urlRefs.current[memoryId].forEach(url => URL.revokeObjectURL(url));
-      }
-      
       const photos = await getPhotosByMemoryId(memoryId);
       const photosWithUrls = photos.map(photo => {
         const url = URL.createObjectURL(photo.blob);
@@ -64,9 +61,22 @@ export const Timeline = ({
     }
   }, [getPhotosByMemoryId]);
 
-  // 当记忆列表变化时，重新加载所有图片
+  // 当记忆列表变化时，重新加载所有图片并清理旧记忆的URL
   useEffect(() => {
-    // 当记忆列表变化时，重新加载所有图片，确保图片URL有效
+    // 获取当前所有记忆的ID
+    const currentMemoryIds = new Set(memories.map(memory => memory.id));
+    
+    // 清理已移除记忆的URL资源
+    Object.keys(urlRefs.current).forEach(memoryId => {
+      if (!currentMemoryIds.has(memoryId)) {
+        // 清理旧记忆的URL
+        urlRefs.current[memoryId].forEach(url => URL.revokeObjectURL(url));
+        // 从引用记录中删除
+        delete urlRefs.current[memoryId];
+      }
+    });
+    
+    // 重新加载所有当前记忆的图片
     memories.forEach(memory => {
       loadImages(memory.id);
     });
@@ -111,17 +121,7 @@ export const Timeline = ({
     };
   }, [loadImages]);
 
-  // 清理URL资源
-  useEffect(() => {
-    return () => {
-      // 清理所有已创建的URL
-      Object.values(imageUrls).forEach(photos => {
-        photos.forEach(photo => {
-          URL.revokeObjectURL(photo.url);
-        });
-      });
-    };
-  }, [imageUrls]);
+
 
   // 更新ref
   const updateRef = useCallback((memoryId: string, ref: HTMLDivElement | null) => {
@@ -166,22 +166,24 @@ export const Timeline = ({
                 </h3>
                 <p className="text-gray-600 mt-1">{memory.note}</p>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => onEdit(memory)}
-                  className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
-                  title="编辑"
-                >
-                  <Edit size={18} />
-                </button>
-                <button
-                  onClick={() => onDelete(memory.id)}
-                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                  title="删除"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
+              {isEditMode && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => onEdit(memory)}
+                    className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
+                    title="编辑"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button
+                    onClick={() => onDelete(memory.id)}
+                    className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                    title="删除"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 图片网格 */}
