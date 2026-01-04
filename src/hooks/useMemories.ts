@@ -80,15 +80,29 @@ export const useMemories = () => {
   ): Promise<void> => {
     setLoading(true);
     try {
-      const memoryId = generateId();
       const now = Date.now();
       const photoIds: string[] = [];
+
+      // 检查是否已存在相同日期的记忆
+      const existingMemory = await db.memories.where('date').equals(date).first();
+
+      let memoryId: string;
+      let existingPhotoIds: string[] = [];
+
+      if (existingMemory) {
+        // 如果存在，使用现有记忆ID
+        memoryId = existingMemory.id;
+        existingPhotoIds = existingMemory.photoIds;
+      } else {
+        // 如果不存在，创建新记忆ID
+        memoryId = generateId();
+      }
 
       // 压缩并保存图片
       for (const file of files) {
         const compressedFile = await compressImage(file);
         const photoId = generateId();
-        
+
         await db.photos.add({
           id: photoId,
           memoryId,
@@ -96,19 +110,31 @@ export const useMemories = () => {
           mimeType: compressedFile.type,
           createdAt: now,
         });
-        
+
         photoIds.push(photoId);
       }
 
-      // 保存记忆
-      await db.memories.add({
-        id: memoryId,
-        date,
-        note,
-        photoIds,
-        createdAt: now,
-        updatedAt: now,
-      });
+      // 合并现有照片ID和新照片ID
+      const allPhotoIds = [...existingPhotoIds, ...photoIds];
+
+      if (existingMemory) {
+        // 更新现有记忆
+        await db.memories.update(memoryId, {
+          note: note || existingMemory.note, // 如果有新备注则更新，否则保持原备注
+          photoIds: allPhotoIds,
+          updatedAt: now,
+        });
+      } else {
+        // 创建新记忆
+        await db.memories.add({
+          id: memoryId,
+          date,
+          note,
+          photoIds: allPhotoIds,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
 
       // 重新加载记忆列表
       await loadMemories();

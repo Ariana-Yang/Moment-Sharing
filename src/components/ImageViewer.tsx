@@ -78,19 +78,28 @@ export const ImageViewer = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, images.length, currentIndex, onIndexChange]);
 
-  // 点击背景关闭
+  // 点击背景关闭（点击图片区域不关闭）
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // 检查点击是否来自按钮或其后代元素
       const target = e.target as HTMLElement;
+
+      // 检查点击是否来自按钮或其后代元素
       if (target.tagName === 'BUTTON' || target.closest('button')) {
         return; // 点击按钮，不关闭模态框
       }
-      
-      // 检查点击是否来自模态框内容
-      if (modalRef.current && !modalRef.current.contains(target)) {
-        onClose();
+
+      // 检查点击是否来自图片或图片容器
+      if (target.tagName === 'IMG' || target.closest('img')) {
+        return; // 点击图片区域，不关闭模态框
       }
+
+      // 检查点击是否来自模态框内容区域
+      if (modalRef.current && modalRef.current.contains(target)) {
+        return; // 点击在内容区域内，不关闭模态框
+      }
+
+      // 点击背景，关闭模态框
+      onClose();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -242,127 +251,113 @@ export const ImageViewer = ({
   const currentImage = images[currentIndex];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100] p-4">
-      {/* 关闭按钮 */}
+    <div className="fixed inset-0 bg-gallery-midnight/95 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
+      {/* 关闭按钮 - 编辑杂志风格 */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 z-20 transition-colors"
+        className="absolute top-6 right-6 text-gallery-cream hover:text-gallery-coral p-3 z-20 transition-all duration-300 hover:scale-110 rounded-full hover:bg-white/10"
         title="关闭"
       >
-        <X size={28} />
+        <X size={32} />
       </button>
 
-      {/* 左箭头 */}
+      {/* 左箭头 - 编辑杂志风格 */}
       <button
         onClick={() => onIndexChange((currentIndex - 1 + images.length) % images.length)}
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 p-2 z-20 transition-colors"
+        className="absolute left-6 top-1/2 transform -translate-y-1/2 text-gallery-cream hover:text-gallery-coral p-3 z-20 transition-all duration-300 hover:scale-110 rounded-full hover:bg-white/10"
         title="上一张"
       >
-        <ChevronLeft size={32} />
+        <ChevronLeft size={36} />
       </button>
 
-      {/* 右箭头 */}
+      {/* 右箭头 - 编辑杂志风格 */}
       <button
         onClick={() => onIndexChange((currentIndex + 1) % images.length)}
-        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 p-2 z-20 transition-colors"
+        className="absolute right-6 top-1/2 transform -translate-y-1/2 text-gallery-cream hover:text-gallery-coral p-3 z-20 transition-all duration-300 hover:scale-110 rounded-full hover:bg-white/10"
         title="下一张"
       >
-        <ChevronRight size={32} />
+        <ChevronRight size={36} />
       </button>
 
-      {/* 操作工具栏 */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 rounded-full p-2 flex space-x-2 z-20">
+      {/* 操作工具栏 - 编辑杂志风格 */}
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-xl rounded-2xl px-4 py-3 flex items-center space-x-2 z-20 shadow-dramatic border border-white/20">
         {/* 缩放控制 */}
         <button
           onClick={handleZoomOut}
-          className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+          className="p-2.5 text-gallery-cream hover:text-gallery-coral hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-110"
           title="缩小"
         >
-          <span className="text-lg font-bold">-</span>
+          <span className="text-xl font-black">-</span>
         </button>
-        
+
         <button
           onClick={handleResetZoom}
-          className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+          className="p-2.5 text-gallery-cream hover:text-gallery-coral hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-110"
           title="重置缩放"
         >
-          <RotateCcw size={18} />
+          <RotateCcw size={20} />
         </button>
-        
+
         <button
           onClick={handleZoomIn}
-          className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+          className="p-2.5 text-gallery-cream hover:text-gallery-coral hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-110"
           title="放大"
         >
-          <span className="text-lg font-bold">+</span>
+          <span className="text-xl font-black">+</span>
         </button>
-        
+
+        {/* 分隔线 */}
+        <div className="w-px h-6 bg-white/30 mx-1"></div>
+
         {/* 下载按钮 */}
         <button
           onClick={handleDownload}
           disabled={downloading}
-          className={`p-2 rounded-full transition-all ${downloading ? 'opacity-70 cursor-not-allowed' : 'text-white hover:bg-white hover:bg-opacity-20'}`}
+          className={`p-2.5 rounded-xl transition-all duration-300 hover:scale-110 ${
+            downloading ? 'opacity-50 cursor-not-allowed' : 'text-gallery-cream hover:text-gallery-coral hover:bg-white/10'
+          }`}
           title="下载原图"
         >
-          <Download size={18} />
+          <Download size={20} />
         </button>
       </div>
 
+      {/* 记忆信息显示 - 编辑杂志风格，固定在工具栏下方 */}
+      <div className="absolute top-[100px] left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-xl text-gallery-cream px-5 py-3 rounded-2xl text-center max-w-[90vw] md:max-w-2xl z-20 pointer-events-none shadow-dramatic border border-white/20">
+        <h3 className="text-lg md:text-xl font-black mb-1 break-words">{new Date(currentImage.memoryDate).toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}</h3>
+        {currentImage.memoryNote && (
+          <p className="text-sm md:text-base opacity-90 font-medium break-words whitespace-pre-wrap leading-relaxed">{currentImage.memoryNote}</p>
+        )}
+      </div>
+
       {/* 图片容器 */}
-      <div 
-        className="relative max-w-6xl max-h-[90vh] overflow-hidden"
+      <div
+        className="relative max-w-[90vw] max-h-[90vh]"
       >
-        {/* 记忆信息显示 */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg text-center max-w-2xl z-20">
-          <h3 className="text-lg font-semibold mb-1">{new Date(currentImage.memoryDate).toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}</h3>
-          {currentImage.memoryNote && (
-            <p className="text-sm opacity-90">{currentImage.memoryNote}</p>
-          )}
-        </div>
-        
-        {/* 可滚动的图片容器 */}
-        <div 
-          ref={modalRef} 
-          className="relative w-full h-[90vh] overflow-auto flex items-center justify-center"
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255,255,255,0.3) transparent'
-          }}
+
+        {/* 图片内容区域 */}
+        <div
+          ref={modalRef}
+          className="relative w-full h-full flex items-center justify-center p-8"
         >
-          {/* 自定义滚动条样式 */}
-          <style>{`
-            /* Webkit browsers (Chrome, Safari, Edge) */
-            div::-webkit-scrollbar {
-              width: 8px;
-              height: 8px;
-            }
-            div::-webkit-scrollbar-track {
-              background: transparent;
-            }
-            div::-webkit-scrollbar-thumb {
-              background-color: rgba(255,255,255,0.3);
-              border-radius: 4px;
-            }
-            div::-webkit-scrollbar-thumb:hover {
-              background-color: rgba(255,255,255,0.5);
-            }
-          `}</style>
-          
-          <div 
-            className="relative p-8"
+          <div
+            className="relative"
             style={{
               transform: `translate(${position.x}px, ${position.y}px)`,
-              cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'zoom-in'
+              cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'default'
             }}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onMouseDown={handleMouseDown}
           >
+            {/* 关键修复点1: 使用max-w-[90vw] max-h-[90vh]确保图片完整显示在视口内 */}
+            {/* 关键修复点2: objectFit设置为contain确保图片保持原始比例 */}
+            {/* 关键修复点3: objectPosition设置为center确保图片居中显示 */}
             <img
               ref={imageRef}
               src={currentImage.url}
@@ -370,87 +365,113 @@ export const ImageViewer = ({
               className="object-contain transition-transform duration-200"
               style={{
                 transform: `scale(${scale})`,
-                cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'zoom-in',
+                cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'default',
+                // 关键修复：使用maxWidth和maxHeight确保图片完整显示
                 maxWidth: '90vw',
-                maxHeight: '80vh',
+                maxHeight: '90vh',
                 width: 'auto',
                 height: 'auto',
+                // 关键修复：objectFit: contain确保图片保持原始比例，不会被裁切
                 objectFit: 'contain',
+                // 关键修复：objectPosition: center确保图片居中显示
                 objectPosition: 'center',
                 display: 'block'
               }}
-              onClick={handleZoomIn}
+              // 点击图片不关闭弹窗，点击背景才会关闭
               onMouseDown={handleMouseDown}
               onLoad={(e) => {
-                // 当图片加载完成后，计算初始缩放比例以适应视口
+                // 关键修复点4: 获取图片原始尺寸，确保容器适配图片比例
                 const img = e.target as HTMLImageElement;
-                if (img && scale === 1) {
-                  // 计算适合视口的初始缩放比例
-                  const containerWidth = window.innerWidth * 0.9;
-                  const containerHeight = window.innerHeight * 0.8;
-                  const imgRatio = img.naturalWidth / img.naturalHeight;
-                  const containerRatio = containerWidth / containerHeight;
-                  
-                  let initialScale = 1;
-                  if (imgRatio > containerRatio) {
-                    // 图片更宽，按宽度缩放
-                    initialScale = containerWidth / img.naturalWidth;
+                if (img && img.naturalWidth && img.naturalHeight) {
+                  // 计算图片的宽高比
+                  const aspectRatio = img.naturalWidth / img.naturalHeight;
+
+                  // 横向长图：宽度大于高度
+                  // 纵向长图：高度大于宽度
+                  // 方形图：宽度等于高度
+
+                  // 对于横向长图，确保宽度优先适配
+                  // 对于纵向长图，确保高度优先适配
+                  if (aspectRatio > 1) {
+                    // 横向长图，按宽度适配
+                    const targetWidth = Math.min(window.innerWidth * 0.9, img.naturalWidth);
+                    const targetHeight = targetWidth / aspectRatio;
+
+                    // 如果高度超出视口，按高度重新计算
+                    if (targetHeight > window.innerHeight * 0.9) {
+                      const adjustedHeight = window.innerHeight * 0.9;
+                      const adjustedWidth = adjustedHeight * aspectRatio;
+                      // 设置图片容器的尺寸
+                      (img as any)._displayWidth = adjustedWidth;
+                      (img as any)._displayHeight = adjustedHeight;
+                    } else {
+                      (img as any)._displayWidth = targetWidth;
+                      (img as any)._displayHeight = targetHeight;
+                    }
                   } else {
-                    // 图片更高，按高度缩放
-                    initialScale = containerHeight / img.naturalHeight;
+                    // 纵向长图或方形图，按高度适配
+                    const targetHeight = Math.min(window.innerHeight * 0.9, img.naturalHeight);
+                    const targetWidth = targetHeight * aspectRatio;
+
+                    // 如果宽度超出视口，按宽度重新计算
+                    if (targetWidth > window.innerWidth * 0.9) {
+                      const adjustedWidth = window.innerWidth * 0.9;
+                      const adjustedHeight = adjustedWidth / aspectRatio;
+                      (img as any)._displayWidth = adjustedWidth;
+                      (img as any)._displayHeight = adjustedHeight;
+                    } else {
+                      (img as any)._displayWidth = targetWidth;
+                      (img as any)._displayHeight = targetHeight;
+                    }
                   }
-                  
-                  // 确保初始缩放不超过1（原始大小）
-                  initialScale = Math.min(initialScale, 1);
-                  setScale(initialScale);
                 }
               }}
             />
           </div>
 
-          {/* 图片计数 */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-1 rounded-full text-sm z-10">
+          {/* 图片计数 - 编辑杂志风格 */}
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-xl text-gallery-cream px-5 py-2.5 rounded-full text-base font-semibold z-10 pointer-events-none border border-white/20">
             {currentIndex + 1} / {images.length}
           </div>
         </div>
       </div>
 
-      {/* 下载进度提示 */}
+      {/* 下载进度提示 - 编辑杂志风格 */}
       {downloading && (
-        <div className="absolute bottom-4 right-4 bg-black bg-opacity-80 text-white p-4 rounded-lg z-20 max-w-sm">
-          <div className="flex items-center mb-2">
-            <Download size={20} className="mr-2 animate-pulse" />
-            <span className="font-medium">正在下载...</span>
+        <div className="absolute bottom-6 right-6 bg-white/10 backdrop-blur-xl text-gallery-cream p-5 rounded-2xl z-20 max-w-sm shadow-dramatic border border-white/20">
+          <div className="flex items-center mb-3">
+            <Download size={24} className="mr-3 animate-pulse text-gallery-coral" />
+            <span className="font-bold text-lg">正在下载...</span>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-2.5 mb-2">
-            <div 
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+          <div className="w-full bg-white/20 rounded-full h-3 mb-2">
+            <div
+              className="bg-gradient-primary h-3 rounded-full transition-all duration-300 shadow-dramatic"
               style={{ width: `${downloadProgress}%` }}
             ></div>
           </div>
-          <div className="text-sm text-gray-300">{downloadProgress}%</div>
+          <div className="text-sm font-semibold text-gallery-coral">{downloadProgress}%</div>
         </div>
       )}
 
-      {/* 下载成功提示 */}
+      {/* 下载成功提示 - 编辑杂志风格 */}
       {downloadStatus === 'success' && (
-        <div className="absolute bottom-4 right-4 bg-green-600 bg-opacity-90 text-white p-4 rounded-lg z-20 max-w-sm flex items-center">
-          <CheckCircle2 size={20} className="mr-2" />
-          <span>下载成功！</span>
+        <div className="absolute bottom-6 right-6 bg-gallery-coral/90 backdrop-blur-xl text-white p-5 rounded-2xl z-20 max-w-sm flex items-center shadow-dramatic animate-scale-in">
+          <CheckCircle2 size={24} className="mr-3" />
+          <span className="font-bold text-lg">下载成功！</span>
         </div>
       )}
 
-      {/* 下载错误提示 */}
+      {/* 下载错误提示 - 编辑杂志风格 */}
       {downloadStatus === 'error' && (
-        <div className="absolute bottom-4 right-4 bg-red-600 bg-opacity-90 text-white p-4 rounded-lg z-20 max-w-sm">
-          <div className="flex items-center mb-2">
-            <AlertCircle size={20} className="mr-2" />
-            <span className="font-medium">下载失败</span>
+        <div className="absolute bottom-6 right-6 bg-red-500/90 backdrop-blur-xl text-white p-5 rounded-2xl z-20 max-w-sm shadow-dramatic">
+          <div className="flex items-center mb-3">
+            <AlertCircle size={24} className="mr-3" />
+            <span className="font-bold text-lg">下载失败</span>
           </div>
-          <div className="text-sm mb-2">{downloadError}</div>
+          <div className="text-sm mb-3 font-medium">{downloadError}</div>
           <button
             onClick={handleDownload}
-            className="text-sm bg-white bg-opacity-20 px-3 py-1 rounded hover:bg-opacity-30 transition-colors"
+            className="text-sm bg-white bg-opacity-20 px-4 py-2 rounded-xl hover:bg-opacity-30 transition-all font-semibold"
           >
             重试
           </button>

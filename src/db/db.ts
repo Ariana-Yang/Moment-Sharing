@@ -27,20 +27,32 @@ interface PasswordConfig {
   updatedAt: number;
 }
 
-// 扩展数据库接口，添加密码配置表
+// 分享配置接口
+export interface ShareConfig {
+  id: number; // 固定为1
+  mode: 'unlimited' | 'range'; // 无限制模式 或 区间模式
+  startDate?: string; // 区间开始日期 (YYYY-MM-DD)
+  endDate?: string; // 区间结束日期 (YYYY-MM-DD)
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 扩展数据库接口，添加密码配置表和分享配置表
 export interface MomentDB extends Dexie {
   memories: Table<Memory>;
   photos: Table<Photo>;
   passwordConfig: Table<PasswordConfig>;
+  shareConfig: Table<ShareConfig>;
 }
 
 // 数据库配置
 export const db = new Dexie('momentDB') as MomentDB;
 
-db.version(3).stores({
+db.version(4).stores({
   memories: 'id, date, createdAt, updatedAt',
   photos: 'id, memoryId, createdAt',
-  passwordConfig: 'id'
+  passwordConfig: 'id',
+  shareConfig: 'id'
 });
 
 // 简单的加密函数（用于存储密码）
@@ -94,5 +106,44 @@ export const hasPassword = async (): Promise<boolean> => {
   } catch (error) {
     console.error('检查密码设置失败:', error);
     return false;
+  }
+};
+
+// 获取分享配置
+export const getShareConfig = async (): Promise<ShareConfig | undefined> => {
+  try {
+    const config = await db.shareConfig.get(1);
+    return config;
+  } catch (error) {
+    console.error('获取分享配置失败:', error);
+    return undefined;
+  }
+};
+
+// 设置分享配置
+export const setShareConfig = async (config: Omit<ShareConfig, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
+  try {
+    const existingConfig = await db.shareConfig.get(1);
+    const now = Date.now();
+
+    await db.shareConfig.put({
+      id: 1,
+      ...config,
+      createdAt: existingConfig?.createdAt || now,
+      updatedAt: now
+    });
+  } catch (error) {
+    console.error('设置分享配置失败:', error);
+    throw error;
+  }
+};
+
+// 删除分享配置
+export const deleteShareConfig = async (): Promise<void> => {
+  try {
+    await db.shareConfig.delete(1);
+  } catch (error) {
+    console.error('删除分享配置失败:', error);
+    throw error;
   }
 };

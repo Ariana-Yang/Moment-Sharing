@@ -3,10 +3,13 @@ import { useState, useCallback, useEffect } from 'react';
 import { useMemories } from './hooks/useMemories';
 import { Timeline } from './components/Timeline';
 import { AddButton } from './components/AddButton';
-import { EditorModal } from './components/EditorModal';
+import EditorModal from './components/EditorModal';
 import { ImageViewer } from './components/ImageViewer';
 import { PasswordModal } from './components/PasswordModal';
-import { hasPassword } from './db/db';
+import { SettingsModal } from './components/SettingsModal';
+import { ShareSettingsModal } from './components/ShareSettingsModal';
+import { hasPassword, getShareConfig, type ShareConfig } from './db/db';
+import { Settings, Share2, Moon, Sun } from 'lucide-react';
 import type { Memory } from './db/db';
 
 function App() {
@@ -18,8 +21,17 @@ function App() {
     createMemory,
     updateMemory,
     deleteMemory,
-    getPhotosByMemoryId
+    getPhotosByMemoryId,
+    exportData,
+    importData
   } = useMemories();
+
+  // 深色模式状态
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // 从localStorage读取用户偏好
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   // 密码验证状态
   const [isPasswordValidated, setIsPasswordValidated] = useState(false);
@@ -30,6 +42,12 @@ function App() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isShareSettingsOpen, setIsShareSettingsOpen] = useState(false);
+
+  // 分享配置状态
+  const [shareConfig, setShareConfigState] = useState<ShareConfig | null>(null);
+  const [filteredMemories, setFilteredMemories] = useState<Memory[]>([]);
 
   // 编辑状态
   const [editingMemory, setEditingMemory] = useState<Memory | undefined>();
@@ -57,6 +75,31 @@ function App() {
   // 要删除的记忆ID
   const [memoryIdToDelete, setMemoryIdToDelete] = useState<string>('');
 
+  // 切换深色模式
+  const toggleDarkMode = useCallback(() => {
+    setIsDarkMode((prev: boolean) => {
+      const newValue = !prev;
+      // 保存到localStorage
+      localStorage.setItem('darkMode', JSON.stringify(newValue));
+      // 切换html的class
+      if (newValue) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      return newValue;
+    });
+  }, []);
+
+  // 初始化深色模式
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   // 检查密码状态
   useEffect(() => {
     const checkPasswordStatus = async () => {
@@ -67,6 +110,21 @@ function App() {
     };
     checkPasswordStatus();
   }, []);
+
+  // 加载分享配置并过滤记忆
+  useEffect(() => {
+    const loadShareConfig = async () => {
+      const config = await getShareConfig();
+      setShareConfigState(config || null);
+
+      if (config) {
+        filterMemories(config);
+      } else {
+        setFilteredMemories(memories);
+      }
+    };
+    loadShareConfig();
+  }, [memories]);
 
   // 处理密码验证
   const handlePasswordValidated = useCallback((isEditMode: boolean) => {
@@ -190,10 +248,39 @@ function App() {
     setViewerPhotos([]);
   }, [viewerPhotos]);
 
+  // 根据分享配置过滤记忆
+  const filterMemories = useCallback((config: ShareConfig) => {
+    if (config.mode === 'unlimited') {
+      // 无限制模式：显示所有记忆
+      setFilteredMemories(memories);
+    } else if (config.mode === 'range' && config.startDate && config.endDate) {
+      // 区间模式：只显示指定时间段内的记忆
+      const startDate = new Date(config.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(config.endDate);
+      endDate.setHours(23, 59, 59, 999);
+
+      const filtered = memories.filter(memory => {
+        const memoryDate = new Date(memory.date);
+        return memoryDate >= startDate && memoryDate <= endDate;
+      });
+
+      setFilteredMemories(filtered);
+    } else {
+      setFilteredMemories(memories);
+    }
+  }, [memories]);
+
+  // 处理分享配置保存
+  const handleShareConfigSave = useCallback((config: ShareConfig) => {
+    setShareConfigState(config);
+    filterMemories(config);
+  }, [filterMemories]);
+
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gallery-cream dark:bg-gallery-midnight transition-colors duration-500 noise-bg">
       {/* 密码模态框 - 始终显示在最上层 */}
       <PasswordModal
         isOpen={isPasswordModalOpen}
@@ -211,25 +298,81 @@ function App() {
       {/* 只有在密码验证通过后才显示内容 */}
       {isPasswordValidated && (
         <>
-          {/* 顶部导航 */}
-          <header className="bg-white shadow-sm">
-            <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-              <h1 className="text-xl font-bold text-gray-800">Moment-Sharing</h1>
+          {/* 顶部导航 - 编辑杂志风格 */}
+          <header className="sticky top-0 z-40 glass dark:glass-dark shadow-soft animate-slide-down">
+            <div className="max-w-6xl mx-auto px-4 py-5">
+              <div className="flex justify-between items-center">
+                {/* Logo - 戏剧化设计 */}
+                <div className="flex items-center space-x-3 group">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300 shadow-dramatic">
+                      <span className="text-white font-black text-xl">M</span>
+                    </div>
+                    {/* 装饰性圆点 */}
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-gallery-coral rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="flex flex-col">
+                    <h1 className="text-2xl font-black text-gallery-deep-teal dark:text-gallery-cream tracking-tight">
+                      Moments
+                    </h1>
+                    <span className="text-xs text-gallery-teal dark:text-gallery-cream-dark font-medium tracking-widest uppercase">
+                      Gallery
+                    </span>
+                  </div>
+                </div>
+
+                {/* 右侧按钮组 - 编辑杂志风格 */}
+                <div className="flex items-center space-x-3">
+                  {/* 深色模式切换按钮 */}
+                  <button
+                    onClick={toggleDarkMode}
+                    className="p-2.5 text-gallery-deep-teal dark:text-gallery-cream hover:text-gallery-coral dark:hover:text-gallery-neon-pink hover:bg-gallery-cream-dark dark:hover:bg-gallery-midnight-light rounded-xl transition-all duration-300 focus-visible-ring"
+                    title={isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
+                  >
+                    {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  </button>
+
+                  {/* 分享设置按钮 - 只在编辑模式下显示 */}
+                  {isEditMode && (
+                    <button
+                      onClick={() => setIsShareSettingsOpen(true)}
+                      className="flex items-center space-x-2 px-4 py-2.5 text-gallery-deep-teal dark:text-gallery-cream hover:text-gallery-coral dark:hover:text-gallery-neon-pink hover:bg-gallery-cream-dark dark:hover:bg-gallery-midnight-light rounded-xl transition-all duration-300 focus-visible-ring font-medium"
+                      title="查看模式设置"
+                    >
+                      <Share2 size={18} />
+                      <span className="hidden sm:inline">查看</span>
+                    </button>
+                  )}
+
+                  {/* 设置按钮 */}
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="flex items-center space-x-2 px-4 py-2.5 text-gallery-deep-teal dark:text-gallery-cream hover:text-gallery-coral dark:hover:text-gallery-neon-pink hover:bg-gallery-cream-dark dark:hover:bg-gallery-midnight-light rounded-xl transition-all duration-300 focus-visible-ring font-medium"
+                    title="设置"
+                  >
+                    <Settings size={18} />
+                    <span className="hidden sm:inline">设置</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </header>
 
           {/* 主内容 */}
-          <main className="max-w-4xl mx-auto px-4 py-8">
-            {/* 错误提示 */}
+          <main className="max-w-6xl mx-auto px-4 py-10">
+            {/* 错误提示 - 编辑杂志风格 */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
-                {error}
+              <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-gallery-coral dark:border-gallery-neon-pink text-gallery-deep-teal dark:text-gallery-cream px-6 py-4 rounded-r-xl mb-8 animate-slide-down shadow-soft">
+                <div className="flex items-center">
+                  <span className="font-semibold text-lg">{error}</span>
+                </div>
               </div>
             )}
 
             {/* 时间轴组件 */}
             <Timeline
-              memories={memories}
+              // 编辑模式下显示所有记忆，查看模式下根据分享配置过滤
+              memories={isEditMode ? memories : filteredMemories}
               loading={loading}
               onEdit={handleEditClick}
               onDelete={handleDeleteClick}
@@ -252,25 +395,25 @@ function App() {
             existingPhotos={existingPhotos}
           />
 
-          {/* 删除确认对话框 */}
+          {/* 删除确认对话框 - 编辑杂志风格 */}
           {isDeleteConfirmOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>
-                  <p className="text-gray-600 mb-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white dark:bg-gallery-midnight-light rounded-2xl shadow-dramatic-lg max-w-md w-full animate-scale-in">
+                <div className="p-8">
+                  <h3 className="text-2xl font-black text-gallery-deep-teal dark:text-gallery-cream mb-3">确认删除</h3>
+                  <p className="text-gallery-teal dark:text-gallery-cream-dark mb-8 leading-relaxed">
                     您确定要删除这条记忆吗？此操作不可恢复，相关的所有图片也将被删除。
                   </p>
-                  <div className="flex justify-end space-x-2">
+                  <div className="flex justify-end space-x-3">
                     <button
                       onClick={() => setIsDeleteConfirmOpen(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="px-6 py-3 border-2 border-gallery-cream-dark dark:border-gallery-midnight rounded-xl text-gallery-deep-teal dark:text-gallery-cream hover:bg-gallery-cream-dark/10 dark:hover:bg-gallery-midnight/50 transition-all font-semibold"
                     >
                       取消
                     </button>
                     <button
                       onClick={handleConfirmDelete}
-                      className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                      className="px-6 py-3 bg-gradient-primary text-white rounded-xl hover:bg-gradient-primary-hover transition-all font-semibold shadow-dramatic hover:shadow-dramatic-lg transform hover:scale-105"
                     >
                       删除
                     </button>
@@ -289,6 +432,23 @@ function App() {
         images={viewerPhotos}
         currentIndex={currentPhotoIndex}
         onIndexChange={setCurrentPhotoIndex}
+      />
+
+      {/* 设置模态框 */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onExport={exportData}
+        onImport={importData}
+        loading={loading}
+      />
+
+      {/* 分享设置模态框 */}
+      <ShareSettingsModal
+        isOpen={isShareSettingsOpen}
+        onClose={() => setIsShareSettingsOpen(false)}
+        onSave={handleShareConfigSave}
+        memories={memories}
       />
     </div>
   );
