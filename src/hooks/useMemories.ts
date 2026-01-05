@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import imageCompression from 'browser-image-compression';
 import { db, type Memory, type Photo } from '../db/db';
 
-// 图片压缩配置
+// 图片压缩配置 - 保持原始质量，不压缩
 const compressionOptions = {
-  maxSizeMB: 1,
-  maxWidthOrHeight: 1920,
+  maxSizeMB: 50,          // 提高到50MB（基本不会触发压缩）
+  maxWidthOrHeight: 8192, // 提高到8192px（8K分辨率）
   useWebWorker: true,
+  alwaysKeepResolution: true, // 保持原始分辨率
 };
 
 // 生成UUID
@@ -62,13 +62,20 @@ export const useMemories = () => {
     loadMemories();
   }, [loadMemories]);
 
-  // 压缩图片
+  // 压缩图片（保持原始质量）
   const compressImage = useCallback(async (file: File): Promise<File> => {
     try {
-      return await imageCompression(file, compressionOptions);
+      // 如果文件小于限制，直接返回原文件
+      if (file.size <= compressionOptions.maxSizeMB * 1024 * 1024) {
+        return file;
+      }
+      // 只有超过50MB的图片才会压缩（极少情况）
+      const compressed = await imageCompression(file, compressionOptions);
+      console.log(`图片压缩: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
+      return compressed;
     } catch (err) {
-      console.error('图片压缩失败:', err);
-      throw err;
+      console.error('图片处理失败:', err);
+      return file;
     }
   }, []);
 

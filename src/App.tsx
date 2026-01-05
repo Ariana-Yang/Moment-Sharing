@@ -3,13 +3,14 @@ import { useState, useCallback, useEffect } from 'react';
 import { useMemories } from './hooks/useMemories';
 import { Timeline } from './components/Timeline';
 import { AddButton } from './components/AddButton';
+import { TimelineSidebar } from './components/TimelineSidebar';
 import EditorModal from './components/EditorModal';
 import { ImageViewer } from './components/ImageViewer';
 import { PasswordModal } from './components/PasswordModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ShareSettingsModal } from './components/ShareSettingsModal';
 import { hasPassword, getShareConfig, type ShareConfig } from './db/db';
-import { Settings, Share2, Moon, Sun } from 'lucide-react';
+import { Settings, Share2, Moon, Sun, Calendar } from 'lucide-react';
 import type { Memory } from './db/db';
 
 function App() {
@@ -48,6 +49,11 @@ function App() {
   // 分享配置状态
   const [shareConfig, setShareConfigState] = useState<ShareConfig | null>(null);
   const [filteredMemories, setFilteredMemories] = useState<Memory[]>([]);
+
+  // 时间轴状态
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | undefined>();
+  const [selectedMonth, setSelectedMonth] = useState<number | undefined>();
 
   // 编辑状态
   const [editingMemory, setEditingMemory] = useState<Memory | undefined>();
@@ -125,6 +131,24 @@ function App() {
     };
     loadShareConfig();
   }, [memories]);
+
+  // 根据时间轴选择过滤记忆
+  useEffect(() => {
+    if (selectedYear !== undefined && selectedMonth !== undefined) {
+      const filtered = memories.filter((memory) => {
+        const date = new Date(memory.date);
+        return date.getFullYear() === selectedYear && date.getMonth() + 1 === selectedMonth;
+      });
+      setFilteredMemories(filtered);
+    } else {
+      // 如果没有选择时间轴，使用分享配置过滤
+      if (shareConfig) {
+        filterMemories(shareConfig);
+      } else {
+        setFilteredMemories(memories);
+      }
+    }
+  }, [selectedYear, selectedMonth, memories, shareConfig]);
 
   // 处理密码验证
   const handlePasswordValidated = useCallback((isEditMode: boolean) => {
@@ -277,6 +301,21 @@ function App() {
     filterMemories(config);
   }, [filterMemories]);
 
+  // 处理时间轴年月选择
+  const handleYearMonthSelect = useCallback((year: number, month: number) => {
+    setSelectedYear(year);
+    setSelectedMonth(month);
+    // 在移动端选择后自动关闭侧边栏
+    if (window.innerWidth < 1024) {
+      setIsTimelineOpen(false);
+    }
+  }, []);
+
+  // 清除时间轴选择（显示所有）
+  const handleClearTimelineSelection = useCallback(() => {
+    setSelectedYear(undefined);
+    setSelectedMonth(undefined);
+  }, []);
 
 
   return (
@@ -353,13 +392,52 @@ function App() {
                     <Settings size={18} />
                     <span className="hidden sm:inline">设置</span>
                   </button>
+
+                  {/* 时间轴按钮 - 只在密码验证通过后显示 */}
+                  {isPasswordValidated && (
+                    <button
+                      onClick={() => setIsTimelineOpen(!isTimelineOpen)}
+                      className={`flex items-center space-x-2 px-4 py-2.5 transition-all duration-300 focus-visible-ring font-medium rounded-xl ${
+                        isTimelineOpen
+                          ? 'bg-gallery-coral text-white dark:bg-gallery-neon-pink shadow-glow-coral'
+                          : 'text-gallery-deep-teal dark:text-gallery-cream hover:text-gallery-coral dark:hover:text-gallery-neon-pink hover:bg-gallery-cream-dark dark:hover:bg-gallery-midnight-light'
+                      }`}
+                      title={isTimelineOpen ? '收起时间轴' : '展开时间轴'}
+                    >
+                      <Calendar size={18} />
+                      <span className="hidden lg:inline">{isTimelineOpen ? '收起' : '时间轴'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           </header>
 
           {/* 主内容 */}
-          <main className="max-w-6xl mx-auto px-4 py-10">
+          <main className={`max-w-7xl mx-auto px-4 py-10 transition-all duration-500 ${isTimelineOpen ? 'lg:pr-96' : ''}`}>
+            {/* 时间轴过滤提示 */}
+            {selectedYear !== undefined && selectedMonth !== undefined && (
+              <div className="bg-gallery-gold/10 dark:bg-gallery-gold/5 border-l-4 border-gallery-gold text-gallery-deep-teal dark:text-gallery-cream px-6 py-4 rounded-r-xl mb-8 animate-slide-down shadow-soft">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Calendar size={20} className="text-gallery-gold" />
+                    <span className="font-semibold">
+                      当前筛选：{selectedYear}年 {selectedMonth}月
+                    </span>
+                    <span className="text-sm text-gallery-teal dark:text-gallery-cream-dark">
+                      （共 {filteredMemories.length} 条记忆）
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleClearTimelineSelection}
+                    className="px-4 py-2 bg-gallery-coral dark:bg-gallery-neon-pink text-white rounded-lg hover:bg-gallery-coral/80 dark:hover:bg-gallery-neon-pink/80 transition-all text-sm font-semibold"
+                  >
+                    清除筛选
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* 错误提示 - 编辑杂志风格 */}
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-gallery-coral dark:border-gallery-neon-pink text-gallery-deep-teal dark:text-gallery-cream px-6 py-4 rounded-r-xl mb-8 animate-slide-down shadow-soft">
@@ -371,8 +449,14 @@ function App() {
 
             {/* 时间轴组件 */}
             <Timeline
-              // 编辑模式下显示所有记忆，查看模式下根据分享配置过滤
-              memories={isEditMode ? memories : filteredMemories}
+              // 时间轴选择优先，然后是分享配置过滤
+              memories={
+                selectedYear !== undefined && selectedMonth !== undefined
+                  ? filteredMemories
+                  : isEditMode
+                  ? memories
+                  : filteredMemories
+              }
               loading={loading}
               onEdit={handleEditClick}
               onDelete={handleDeleteClick}
@@ -450,6 +534,18 @@ function App() {
         onSave={handleShareConfigSave}
         memories={memories}
       />
+
+      {/* 时间轴侧边栏 - 只在密码验证通过后才显示 */}
+      {isPasswordValidated && (
+        <TimelineSidebar
+          memories={memories}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          onYearMonthSelect={handleYearMonthSelect}
+          isOpen={isTimelineOpen}
+          onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
+        />
+      )}
     </div>
   );
 }
