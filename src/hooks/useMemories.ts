@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db, type Memory, type Photo } from '../db/db';
+import imageCompression from 'browser-image-compression';
 
 // 图片压缩配置 - 保持原始质量，不压缩
 const compressionOptions = {
