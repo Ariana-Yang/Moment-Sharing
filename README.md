@@ -209,17 +209,6 @@ Moment-Sharing是一个基于React 18 + Vite（TypeScript）开发的私人照�
 
 本项目采用 MIT 许可证。详情请查看 [LICENSE](LICENSE) 文件。
 
-## 联系信息
-
-### 项目维护者
-- 姓名：[Your Name]
-- 邮箱：[your-email@example.com]
-- GitHub：[Your GitHub Profile]
-
-### 反馈与建议
-如果您有任何反馈或建议，欢迎通过以下方式联系我们：
-- 提交 GitHub Issue：[GitHub Issues]
-- 发送邮件：[your-email@example.com]
 
 ## 后续开发计划
 
