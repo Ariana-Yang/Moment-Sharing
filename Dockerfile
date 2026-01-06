@@ -16,12 +16,15 @@ COPY . .
 # 构建应用
 RUN npm run build
 
-# 暴露端口
+# 暴露端口(Zeabur会通过环境变量PORT动态分配)
 EXPOSE 5173
 
-# 设置健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:5173', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+# 设置环境变量
+ENV NODE_ENV=production
+
+# 设置健康检查(使用动态PORT)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD sh -c "node -e \"require('http').get('http://localhost:' + (process.env.PORT || 5173), (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})\""
 
 # 启动应用
 CMD ["npm", "start"]
