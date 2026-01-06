@@ -166,16 +166,20 @@ export const ImageViewer = ({
   // 下载功能
   const handleDownload = async () => {
     if (downloading) return;
-    
+
     try {
       setDownloading(true);
       setDownloadProgress(0);
       setDownloadStatus('idle');
       setDownloadError('');
-      
+
       const currentImage = images[currentIndex];
-      const blob = currentImage.blob;
-      
+
+      // 从 publicUrl 下载图片数据
+      if (!currentImage.publicUrl) {
+        throw new Error('图片 URL 不存在');
+      }
+
       // 模拟下载进度
       const simulateProgress = () => {
         let progress = 0;
@@ -188,33 +192,39 @@ export const ImageViewer = ({
         }, 100);
         return interval;
       };
-      
+
       const progressInterval = simulateProgress();
-      
+
+      // 从 publicUrl 获取实际的图片数据
+      const response = await fetch(currentImage.publicUrl);
+      if (!response.ok) {
+        throw new Error(`下载失败: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const mimeType = blob.type || currentImage.mimeType || 'image/jpeg';
+      const extension = mimeType.split('/')[1] || 'jpg';
+      const fileName = `moment-sharing-${currentIndex + 1}-${new Date().toISOString().split('T')[0]}.${extension}`;
+
       // 创建下载链接
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
-      // 设置文件名
-      const mimeType = blob.type || 'image/jpeg';
-      const extension = mimeType.split('/')[1] || 'jpg';
-      const fileName = `moment-sharing-${currentIndex + 1}-${new Date().toISOString().split('T')[0]}.${extension}`;
       link.download = fileName;
-      
+
       // 触发下载
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // 清理URL
       URL.revokeObjectURL(url);
-      
+
       // 完成下载
       clearInterval(progressInterval);
       setDownloadProgress(100);
       setDownloadStatus('success');
-      
+
       // 3秒后隐藏成功提示
       setTimeout(() => {
         setDownloadStatus('idle');

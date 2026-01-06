@@ -207,18 +207,36 @@ export const Timeline = ({
         const photos = imageUrls[memory.id] || [];
         for (const photo of photos) {
           if (selectedPhotos.has(photo.id)) {
-            // 生成文件名：日期_序号.扩展名
-            const dateStr = memory.date.replace(/-/g, '');
-            const mimeType = photo.mimeType || 'image/jpeg';
-            const extension = mimeType.split('/')[1] || 'jpg';
-            const photoIndex = photos.findIndex(p => p.id === photo.id) + 1;
-            const fileName = `${dateStr}_${photoIndex}.${extension}`;
+            try {
+              // 从 publicUrl 下载图片数据
+              if (!photo.publicUrl) {
+                console.error('图片 URL 不存在:', photo.id);
+                continue;
+              }
 
-            // 添加到 ZIP
-            zip.file(fileName, photo.blob);
+              const response = await fetch(photo.publicUrl);
+              if (!response.ok) {
+                console.error('下载图片失败:', photo.id, response.statusText);
+                continue;
+              }
 
-            processedCount++;
-            setDownloadProgress(Math.round((processedCount / totalCount) * 100));
+              const blob = await response.blob();
+
+              // 生成文件名：日期_序号.扩展名
+              const dateStr = memory.date.replace(/-/g, '');
+              const mimeType = blob.type || photo.mimeType || 'image/jpeg';
+              const extension = mimeType.split('/')[1] || 'jpg';
+              const photoIndex = photos.findIndex(p => p.id === photo.id) + 1;
+              const fileName = `${dateStr}_${photoIndex}.${extension}`;
+
+              // 添加到 ZIP
+              zip.file(fileName, blob);
+
+              processedCount++;
+              setDownloadProgress(Math.round((processedCount / totalCount) * 100));
+            } catch (error) {
+              console.error('处理图片失败:', photo.id, error);
+            }
           }
         }
       }

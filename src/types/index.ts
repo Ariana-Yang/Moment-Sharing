@@ -19,4 +19,6 @@ export interface ImageWithUrl {
   mimeType: string;
   createdAt: number;
   url: string;
+  publicUrl?: string; // Supabase存储的公共URL
+  thumbnailUrl?: string; // 缩略图URL
 }
