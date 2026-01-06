@@ -334,7 +334,8 @@ export const uploadPhoto = async (
   memoryId: string,
   file: File,
   userId: string,
-  displayOrder: number
+  displayOrder: number,
+  onProgress?: (stage: 'compressing' | 'uploading') => void
 ): Promise<Photo> => {
   try {
     console.log('📤 上传照片...');
@@ -344,11 +345,14 @@ export const uploadPhoto = async (
     console.log('  显示顺序:', displayOrder);
 
     // 1. 生成三个版本:原图、预览图、缩略图
+    onProgress?.('compressing');
     console.log('🔄 生成图片版本...');
     const { preview: compressedFile, thumbnail } = await generateImageVersions(file);
     console.log('  预览图大小:', (compressedFile.size / 1024).toFixed(2), 'KB');
     console.log('  缩略图大小:', (thumbnail.size / 1024).toFixed(2), 'KB');
 
+    // 2. 开始上传
+    onProgress?.('uploading');
     console.log('📤 开始上传...');
 
     // 2. 生成唯一文件名
@@ -474,8 +478,8 @@ export const uploadPhotos = async (
 
     // 并发上传所有照片
     const uploadPromises = files.map((file, index) => {
-      return uploadPhotoWithProgress(memoryId, file, userId, index, (stage, fileName) => {
-        onProgress?.(index + 1, files.length, fileName, stage);
+      return uploadPhoto(memoryId, file, userId, index, (stage) => {
+        onProgress?.(index + 1, files.length, file.name, stage);
       });
     });
 
@@ -487,20 +491,6 @@ export const uploadPhotos = async (
     console.error('❌ 批量上传异常:', error);
     throw error;
   }
-};
-
-/**
- * 上传单张照片(带进度回调)
- */
-const uploadPhotoWithProgress = async (
-  memoryId: string,
-  file: File,
-  userId: string,
-  displayOrder: number,
-  onProgress?: (stage: 'compressing' | 'uploading', fileName: string) => void
-): Promise<Photo> => {
-  onProgress?.('compressing', file.name);
-  return await uploadPhoto(memoryId, file, userId, displayOrder);
 };
 
 // ========== 照片管理 ==========

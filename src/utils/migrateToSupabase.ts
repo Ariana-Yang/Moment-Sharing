@@ -149,7 +149,7 @@ export async function migrateToSupabase(
 
         try {
           // 上传照片
-          await uploadPhoto(cloudMemoryId, file, user.id, j);
+          await uploadPhoto(cloudMemoryId, file, user.id, j, undefined);
           totalSize += file.size;
           photosMigrated++;
 
