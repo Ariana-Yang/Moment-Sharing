@@ -11,10 +11,10 @@
 import imageCompression from 'browser-image-compression';
 
 /**
- * 预览图压缩配置
+ * 预览图压缩配置 (大图查看)
  */
 const PREVIEW_OPTIONS = {
-  maxSizeMB: 0.5, // 最大500KB
+  maxSizeMB: 0.3, // 最大300KB (从500KB降低)
   maxWidthOrHeight: 1920, // 最大尺寸
   useWebWorker: true,
   fileType: 'image/jpeg',
@@ -22,14 +22,14 @@ const PREVIEW_OPTIONS = {
 } as const;
 
 /**
- * 缩略图压缩配置
+ * 缩略图压缩配置 (列表快速预览)
  */
 const THUMBNAIL_OPTIONS = {
-  maxSizeMB: 0.05, // 最大50KB
-  maxWidthOrHeight: 300, // 最大尺寸300px
+  maxSizeMB: 0.02, // 最大20KB (从50KB降低)
+  maxWidthOrHeight: 200, // 最大尺寸200px (从300px降低)
   useWebWorker: true,
   fileType: 'image/jpeg',
-  quality: 0.7,
+  quality: 0.6, // 质量60% (从70%降低)
 } as const;
 
 /**
