@@ -16,6 +16,7 @@ interface TimelineProps {
     mimeType: string;
     createdAt: number;
     publicUrl?: string;
+    originalPublicUrl?: string;
     thumbnailUrl?: string;
   }>>;
   isEditMode: boolean;
@@ -59,19 +60,25 @@ export const Timeline = ({
       }
 
       const photosWithUrls = photos.map((photo, index) => {
-        // 优先使用publicUrl，如果没有才从blob创建
-        const url = photo.publicUrl || URL.createObjectURL(photo.blob);
+        // 优先使用缩略图（最快），如果没有则使用预览图，最后才从blob创建
+        const url = photo.thumbnailUrl || photo.publicUrl || URL.createObjectURL(photo.blob);
 
         console.log(`  [Timeline] 照片 ${index + 1}:`, {
           id: photo.id,
+          hasThumbnail: !!photo.thumbnailUrl,
           hasPublicUrl: !!photo.publicUrl,
-          urlType: photo.publicUrl ? 'publicUrl' : 'blob',
+          hasOriginal: !!photo.originalPublicUrl,
+          urlType: photo.thumbnailUrl ? 'thumbnail' : (photo.publicUrl ? 'preview' : 'blob'),
           url: url.substring(0, 80) + '...'
         });
 
         return {
           ...photo,
-          url
+          url,
+          // 保留所有URL字段用于错误恢复
+          publicUrl: photo.publicUrl,
+          originalPublicUrl: photo.originalPublicUrl,
+          thumbnailUrl: photo.thumbnailUrl
         };
       });
 
@@ -466,10 +473,25 @@ export const Timeline = ({
                           console.log(`✅ [Timeline] 图片加载成功: ${photo.id}`);
                         }}
                         onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          const currentUrl = target.src;
+
                           console.error(`❌ [Timeline] 图片加载失败: ${photo.id}`, {
-                            url: photo.url?.substring(0, 100) + '...',
+                            url: currentUrl.substring(0, 100) + '...',
                             error: e
                           });
+
+                          // 错误恢复逻辑：尝试加载备用URL
+                          // 如果当前是缩略图失败，尝试预览图
+                          if (photo.thumbnailUrl && currentUrl.includes('thumbnail')) {
+                            console.log(`🔄 [Timeline] 尝试降级到预览图: ${photo.id}`);
+                            target.src = photo.publicUrl || '';
+                          }
+                          // 如果当前是预览图失败，尝试原图
+                          else if (photo.publicUrl && !currentUrl.includes('thumbnail') && photo.originalPublicUrl) {
+                            console.log(`🔄 [Timeline] 尝试降级到原图: ${photo.id}`);
+                            target.src = photo.originalPublicUrl;
+                          }
                         }}
                       />
                     </div>
