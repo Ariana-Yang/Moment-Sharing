@@ -10,6 +10,7 @@
 import { supabase, TABLES, BUCKETS } from '@/lib/supabase';
 import type { Memory } from '@/db/db';
 import { getCurrentUser } from '@/services/authService';
+import { compressImage } from '@/utils/imageCompression';
 
 // ========== 类型定义 ==========
 
@@ -330,20 +331,25 @@ export const uploadPhoto = async (
     console.log('📤 上传照片...');
     console.log('  记忆ID:', memoryId);
     console.log('  文件名:', file.name);
-    console.log('  文件大小:', (file.size / 1024).toFixed(2), 'KB');
+    console.log('  原始大小:', (file.size / 1024).toFixed(2), 'KB');
 
-    // 1. 生成唯一文件名
+    // 1. 压缩图片
+    console.log('🔧 压缩图片中...');
+    const compressedFile = await compressImage(file);
+    console.log('  压缩后大小:', (compressedFile.size / 1024).toFixed(2), 'KB');
+
+    // 2. 生成唯一文件名
     const photoId = crypto.randomUUID();
-    const fileExt = file.name.split('.').pop() || 'jpg';
+    const fileExt = 'jpg'; // 统一使用jpg格式
     const fileName = `${photoId}.${fileExt}`;
 
     console.log('  生成文件名:', fileName);
 
-    // 2. 上传原图
+    // 3. 上传压缩后的图片
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from(BUCKETS.PHOTOS)
-      .upload(`${userId}/${memoryId}/${fileName}`, file);
+      .upload(`${userId}/${memoryId}/${fileName}`, compressedFile);
 
     if (uploadError) {
       console.error('  上传失败:', uploadError);
@@ -352,7 +358,7 @@ export const uploadPhoto = async (
 
     console.log('  文件上传成功:', uploadData.path);
 
-    // 3. 获取公共URL
+    // 4. 获取公共URL
     const { data: urlData } = supabase
       .storage
       .from(BUCKETS.PHOTOS)
@@ -361,11 +367,11 @@ export const uploadPhoto = async (
     const publicUrl = urlData.publicUrl;
     console.log('  公共URL:', publicUrl);
 
-    // 4. 获取图片尺寸
-    const dimensions = await getImageDimensions(file);
+    // 5. 获取图片尺寸
+    const dimensions = await getImageDimensions(compressedFile);
     console.log('  图片尺寸:', dimensions.width, 'x', dimensions.height);
 
-    // 5. 创建照片记录
+    // 6. 创建照片记录
     console.log('💾 创建照片记录...');
     const { data: photoData, error: photoError } = await supabase
       .from(TABLES.PHOTOS)
@@ -375,8 +381,8 @@ export const uploadPhoto = async (
         storage_path: uploadData.path,
         public_url: publicUrl,
         thumbnail_url: null, // 暂时没有缩略图
-        mime_type: file.type,
-        file_size: file.size,
+        mime_type: compressedFile.type,
+        file_size: compressedFile.size,
         width: dimensions.width,
         height: dimensions.height,
       })
@@ -390,7 +396,7 @@ export const uploadPhoto = async (
 
     console.log('✅ 照片记录创建成功, ID:', photoData.id);
 
-    // 6. 更新记忆的照片计数
+    // 7. 更新记忆的照片计数
     // 先获取当前计数
     const { data: memoryData } = await supabase
       .from(TABLES.MEMORIES)
@@ -410,8 +416,8 @@ export const uploadPhoto = async (
     return {
       id: photoData.id,
       memoryId: photoData.memory_id,
-      blob: file,
-      mimeType: photoData.mime_type || file.type,
+      blob: compressedFile,
+      mimeType: photoData.mime_type || compressedFile.type,
       createdAt: new Date(photoData.created_at).getTime(),
       publicUrl: photoData.public_url,
     };
