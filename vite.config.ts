@@ -15,4 +15,9 @@ export default defineConfig({
       '@types': path.resolve(__dirname, './src/types'),
     },
   },
+  server: {
+    host: '0.0.0.0', // 监听所有网络接口
+    port: 5173, // 默认端口
+    strictPort: false, // 端口被占用时自动尝试下一个端口
+  },
 })
