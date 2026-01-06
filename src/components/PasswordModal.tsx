@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { X, Eye, EyeOff, Lock, Sparkles } from 'lucide-react';
-import { hasPassword, validatePassword, setPassword } from '../db/db';
+import {
+  loginUser,
+  validateEditPassword,
+  registerUser,
+  updatePassword
+} from '../services/authService';
 
 interface PasswordModalProps {
   isOpen: boolean;
+  hasUserInDb: boolean | null;
   onClose: () => void;
   onPasswordValidated: (isEditMode: boolean) => void;
   onPasswordSet: () => void;
@@ -11,6 +17,7 @@ interface PasswordModalProps {
 
 export const PasswordModal = ({
   isOpen,
+  hasUserInDb,
   onClose,
   onPasswordValidated,
   onPasswordSet
@@ -30,7 +37,7 @@ export const PasswordModal = ({
       checkFirstTimeSetup();
       resetState();
     }
-  }, [isOpen]);
+  }, [isOpen, hasUserInDb]);
 
   const resetState = () => {
     setMode('view');
@@ -43,8 +50,19 @@ export const PasswordModal = ({
   };
 
   const checkFirstTimeSetup = async () => {
-    const hasPwd = await hasPassword();
-    setIsFirstTimeSetup(!hasPwd);
+    // 如果数据库中没有用户，说明是首次设置
+    // 如果数据库中有用户，说明需要登录验证
+    // 如果hasUserInDb为null，说明还在检查中，暂时不显示
+    if (hasUserInDb === null) {
+      setIsFirstTimeSetup(false); // 等待检查完成
+    } else {
+      setIsFirstTimeSetup(!hasUserInDb);
+    }
+
+    console.log('🔍 检查首次设置状态:', {
+      hasUserInDb,
+      isFirstTimeSetup: !hasUserInDb
+    });
   };
 
   // 处理密码验证
@@ -57,16 +75,36 @@ export const PasswordModal = ({
     }
 
     try {
-      const isValid = await validatePassword(password, mode);
-      if (isValid) {
-        onPasswordValidated(mode === 'edit');
-        onClose();
+      console.log('🔐 验证密码:', { mode, passwordLength: password.length });
+
+      if (mode === 'view') {
+        // 查看模式：使用默认邮箱登录
+        const result = await loginUser('user@moment-sharing.com', password);
+
+        if (result.isValid && result.mode === 'view') {
+          console.log('✅ 查看密码验证成功');
+          onPasswordValidated(false);
+          onClose();
+        } else {
+          console.log('❌ 查看密码验证失败');
+          setError('密码错误');
+        }
       } else {
-        setError('密码错误');
+        // 编辑模式：验证编辑密码
+        const result = await validateEditPassword(password);
+
+        if (result.isValid && result.mode === 'edit') {
+          console.log('✅ 编辑密码验证成功');
+          onPasswordValidated(true);
+          onClose();
+        } else {
+          console.log('❌ 编辑密码验证失败');
+          setError('编辑密码错误');
+        }
       }
     } catch (err) {
       setError('密码验证失败');
-      console.error(err);
+      console.error('❌ 密码验证异常:', err);
     }
   };
 
@@ -91,12 +129,16 @@ export const PasswordModal = ({
     }
 
     try {
-      await setPassword(viewPassword, editPassword);
+      console.log('📝 注册用户...');
+
+      await registerUser('user@moment-sharing.com', viewPassword, editPassword);
+
+      console.log('✅ 用户注册成功');
       onPasswordSet();
       onClose();
     } catch (err) {
       setError('密码设置失败');
-      console.error(err);
+      console.error('❌ 注册用户异常:', err);
     }
   };
 
@@ -126,20 +168,19 @@ export const PasswordModal = ({
     }
 
     try {
-      // 验证当前编辑密码
-      const isValid = await validatePassword(password, 'edit');
-      if (!isValid) {
-        setError('当前编辑密码错误');
-        return;
-      }
+      console.log('🔄 更新密码...');
 
-      // 设置新密码
-      await setPassword(viewPassword, editPassword);
+      await updatePassword(password, viewPassword, editPassword);
+
+      console.log('✅ 密码更新成功');
       setIsSettingMode(false);
       setError('密码修改成功');
+
+      // 2秒后清除成功消息
+      setTimeout(() => setError(''), 2000);
     } catch (err) {
       setError('密码修改失败');
-      console.error(err);
+      console.error('❌ 更新密码异常:', err);
     }
   };
 

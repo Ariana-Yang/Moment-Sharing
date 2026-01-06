@@ -15,6 +15,8 @@ interface TimelineProps {
     blob: Blob;
     mimeType: string;
     createdAt: number;
+    publicUrl?: string;
+    thumbnailUrl?: string;
   }>>;
   isEditMode: boolean;
 }
@@ -46,25 +48,55 @@ export const Timeline = ({
   // 处理图片加载
   const loadImages = useCallback(async (memoryId: string) => {
     try {
+      console.log('🖼️ [Timeline] 加载图片, Memory ID:', memoryId);
       const photos = await getPhotosByMemoryId(memoryId);
-      const photosWithUrls = photos.map(photo => {
-        const url = URL.createObjectURL(photo.blob);
+
+      console.log('  [Timeline] 获取到', photos.length, '张照片');
+
+      if (photos.length === 0) {
+        console.warn('  [Timeline] ⚠️ 没有照片数据！');
+        return;
+      }
+
+      const photosWithUrls = photos.map((photo, index) => {
+        // 优先使用publicUrl，如果没有才从blob创建
+        const url = photo.publicUrl || URL.createObjectURL(photo.blob);
+
+        console.log(`  [Timeline] 照片 ${index + 1}:`, {
+          id: photo.id,
+          hasPublicUrl: !!photo.publicUrl,
+          urlType: photo.publicUrl ? 'publicUrl' : 'blob',
+          url: url.substring(0, 80) + '...'
+        });
+
         return {
           ...photo,
           url
         };
       });
 
-      // 存储新的URL引用，用于后续清理
-      urlRefs.current[memoryId] = photosWithUrls.map(photo => photo.url);
-      
+      console.log('  [Timeline] photosWithUrls准备就绪，数量:', photosWithUrls.length);
+      console.log('  [Timeline] 第一个照片的URL:', photosWithUrls[0]?.url?.substring(0, 100) + '...');
+
+      // 存储新的URL引用，用于后续清理（只存储从blob创建的URL）
+      urlRefs.current[memoryId] = photosWithUrls
+        .filter(photo => !photo.publicUrl)
+        .map(photo => photo.url);
+
       // 更新图片URLs状态
-      setImageUrls(prev => ({
-        ...prev,
-        [memoryId]: photosWithUrls
-      }));
+      setImageUrls(prev => {
+        const newState = {
+          ...prev,
+          [memoryId]: photosWithUrls
+        };
+        console.log('  [Timeline] 更新imageUrls状态，memoryId:', memoryId);
+        console.log('  [Timeline] imageUrls[memoryId]数量:', newState[memoryId]?.length);
+        return newState;
+      });
+
+      console.log('✅ [Timeline] 图片加载完成');
     } catch (error) {
-      console.error('加载图片失败:', error);
+      console.error('❌ [Timeline] 加载图片失败:', error);
     }
   }, [getPhotosByMemoryId]);
 
@@ -375,7 +407,7 @@ export const Timeline = ({
             </div>
 
             {/* 图片网格 - 编辑杂志风格 */}
-            {memory.photoIds.length > 0 && (
+            {imageUrls[memory.id] && imageUrls[memory.id].length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {imageUrls[memory.id]?.map((photo, index) => (
                   <div
@@ -411,6 +443,15 @@ export const Timeline = ({
                           if (isBatchMode) {
                             e.stopPropagation();
                           }
+                        }}
+                        onLoad={() => {
+                          console.log(`✅ [Timeline] 图片加载成功: ${photo.id}`);
+                        }}
+                        onError={(e) => {
+                          console.error(`❌ [Timeline] 图片加载失败: ${photo.id}`, {
+                            url: photo.url?.substring(0, 100) + '...',
+                            error: e
+                          });
                         }}
                       />
                     </div>

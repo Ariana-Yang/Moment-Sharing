@@ -14,6 +14,8 @@ interface EditorModalProps {
     blob: Blob;
     mimeType: string;
     createdAt: number;
+    publicUrl?: string;
+    thumbnailUrl?: string;
   }>;
 }
 
@@ -65,6 +67,11 @@ const EditorModal = ({
   // 生成预览URL - 修复无限循环问题
   useEffect(() => {
     const existing = existingPhotos || [];
+
+    console.log('🖼️ 生成预览URL...');
+    console.log('  已有照片数量:', existing.length);
+    console.log('  新文件数量:', newFiles.length);
+
     // 生成新文件的URL
     const newFileUrls = newFiles.map(file => ({
       id: `new-${Math.random().toString(36).substr(2, 9)}`,
@@ -72,19 +79,36 @@ const EditorModal = ({
       isExisting: false
     }));
 
-    // 生成已有文件的URL
-    const existingPhotoUrls = existing.map(photo => ({
-      id: photo.id,
-      url: URL.createObjectURL(photo.blob),
-      isExisting: true
-    }));
+    // 生成已有文件的URL - 优先使用publicUrl
+    const existingPhotoUrls = existing.map(photo => {
+      // 如果有publicUrl，直接使用；否则从blob创建
+      const url = photo.publicUrl || URL.createObjectURL(photo.blob);
+
+      console.log(`  照片 ${photo.id}:`, {
+        hasPublicUrl: !!photo.publicUrl,
+        hasBlob: !!photo.blob,
+        url: url.substring(0, 100) + '...'
+      });
+
+      return {
+        id: photo.id,
+        url: url,
+        isExisting: true
+      };
+    });
 
     const allUrls = [...existingPhotoUrls, ...newFileUrls];
+    console.log('✅ 生成预览URL完成，总数:', allUrls.length);
     setPreviewUrls(allUrls);
 
-    // 清理URL资源 - 只清理当前批次创建的URL
+    // 清理URL资源 - 只清理从blob创建的URL
     return () => {
-      allUrls.forEach(item => URL.revokeObjectURL(item.url));
+      allUrls.forEach(item => {
+        // 只清理blob创建的URL，不清理publicUrl
+        if (!item.isExisting || !existing.find(p => p.id === item.id && p.publicUrl)) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
     };
   }, [newFiles, existingPhotos]);
 

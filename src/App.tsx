@@ -9,9 +9,13 @@ import { ImageViewer } from './components/ImageViewer';
 import { PasswordModal } from './components/PasswordModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ShareSettingsModal } from './components/ShareSettingsModal';
-import { hasPassword, getShareConfig, type ShareConfig } from './db/db';
+import { getShareConfig, type ShareConfig } from './db/db';
 import { Settings, Share2, Moon, Sun, Calendar } from 'lucide-react';
 import type { Memory } from './db/db';
+import { getCurrentUser, checkUserExists } from './services/authService';
+
+// 导入 Supabase 以验证配置（这会触发初始化日志）
+import './lib/supabase';
 
 function App() {
   // 使用自定义Hook获取记忆数据
@@ -22,9 +26,7 @@ function App() {
     createMemory,
     updateMemory,
     deleteMemory,
-    getPhotosByMemoryId,
-    exportData,
-    importData
+    getPhotosByMemoryId
   } = useMemories();
 
   // 深色模式状态
@@ -45,6 +47,9 @@ function App() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShareSettingsOpen, setIsShareSettingsOpen] = useState(false);
+
+  // 用户状态
+  const [hasUserInDb, setHasUserInDb] = useState<boolean | null>(null);
 
   // 分享配置状态
   const [shareConfig, setShareConfigState] = useState<ShareConfig | null>(null);
@@ -106,10 +111,39 @@ function App() {
     }
   }, [isDarkMode]);
 
+  // 初始化用户（Supabase）
+  useEffect(() => {
+    const initUser = async () => {
+      try {
+        console.log('🔐 检查用户状态...');
+        const user = getCurrentUser();
+
+        if (!user) {
+          console.log('📝 用户未初始化，检查数据库...');
+          // 检查数据库中是否已有用户
+          const hasUser = await checkUserExists();
+          setHasUserInDb(hasUser);
+
+          if (hasUser) {
+            console.log('ℹ️ 数据库中已有用户，需要密码验证');
+          } else {
+            console.log('ℹ️ 系统未初始化，等待用户设置密码');
+          }
+        } else {
+          console.log('✅ 用户已存在:', user.email);
+          setHasUserInDb(true); // localStorage有用户，数据库肯定有
+        }
+      } catch (err) {
+        console.error('❌ 用户初始化失败:', err);
+      }
+    };
+
+    initUser();
+  }, []);
+
   // 检查密码状态
   useEffect(() => {
     const checkPasswordStatus = async () => {
-      await hasPassword(); // 调用hasPassword检查是否已设置密码
       // 无论是否已设置密码，都显示密码模态框
       // 如果未设置密码，模态框会显示设置密码界面
       setIsPasswordModalOpen(true);
@@ -230,6 +264,8 @@ function App() {
   // 处理图片点击
   const handleImageClick = useCallback(async (memoryId: string, photoIndex: number) => {
     try {
+      console.log('🖼️ [App] 点击图片, Memory ID:', memoryId, 'Photo Index:', photoIndex);
+
       // 创建全局图片列表，包含所有记忆的图片
       const allPhotos = await Promise.all(
         memories.map(async (memory) => {
@@ -242,32 +278,55 @@ function App() {
           }));
         })
       );
-      
+
       // 扁平化为一维数组并按创建时间排序
       const flatPhotos = allPhotos.flat().sort((a, b) => a.createdAt - b.createdAt);
-      
+
+      console.log('  [App] 所有照片数量:', flatPhotos.length);
+
       // 查找当前点击的图片在全局列表中的索引
       const targetPhoto = await getPhotosByMemoryId(memoryId);
       const targetGlobalIndex = flatPhotos.findIndex(photo => photo.id === targetPhoto[photoIndex].id);
-      
-      // 为所有图片创建URL
-      const photosWithUrls = flatPhotos.map(photo => ({
-        ...photo,
-        url: URL.createObjectURL(photo.blob)
-      }));
+
+      console.log('  [App] 目标照片索引:', targetGlobalIndex);
+
+      // 为所有图片创建URL - 优先使用publicUrl
+      const photosWithUrls = flatPhotos.map((photo, index) => {
+        // 优先使用publicUrl，如果没有才从blob创建
+        const url = (photo as any).publicUrl || URL.createObjectURL(photo.blob);
+
+        console.log(`  [App] 照片 ${index + 1}:`, {
+          id: photo.id,
+          hasPublicUrl: !!(photo as any).publicUrl,
+          urlType: (photo as any).publicUrl ? 'publicUrl' : 'blob',
+          url: url.substring(0, 80) + '...'
+        });
+
+        return {
+          ...photo,
+          url
+        };
+      });
 
       setViewerPhotos(photosWithUrls);
       setCurrentPhotoIndex(targetGlobalIndex);
       setIsImageViewerOpen(true);
+
+      console.log('✅ [App] 图片查看器已打开');
     } catch (err) {
-      console.error('加载图片失败:', err);
+      console.error('❌ [App] 加载图片失败:', err);
     }
   }, [getPhotosByMemoryId, memories]);
 
   // 关闭图片查看器
   const handleCloseImageViewer = useCallback(() => {
-    // 清理URL资源
-    viewerPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
+    // 清理URL资源 - 只清理从blob创建的URL
+    viewerPhotos.forEach(photo => {
+      // 如果没有publicUrl，说明是blob创建的URL，需要清理
+      if (!(photo as any).publicUrl) {
+        URL.revokeObjectURL(photo.url);
+      }
+    });
     setIsImageViewerOpen(false);
     setViewerPhotos([]);
   }, [viewerPhotos]);
@@ -323,6 +382,7 @@ function App() {
       {/* 密码模态框 - 始终显示在最上层 */}
       <PasswordModal
         isOpen={isPasswordModalOpen}
+        hasUserInDb={hasUserInDb}
         onClose={() => {
           // 如果已经验证密码，允许关闭模态框
           // 否则不允许关闭，重新显示模态框
@@ -522,8 +582,14 @@ function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onExport={exportData}
-        onImport={importData}
+        onExport={() => {
+          // Supabase版本不支持导出功能
+          alert('数据已存储在云端，无需导出');
+        }}
+        onImport={() => {
+          // Supabase版本不支持导入功能
+          alert('数据已存储在云端，无需导入');
+        }}
         loading={loading}
       />
 

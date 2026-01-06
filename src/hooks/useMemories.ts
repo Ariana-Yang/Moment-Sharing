@@ -1,42 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db, type Memory, type Photo } from '../db/db';
-import imageCompression from 'browser-image-compression';
-
-// 图片压缩配置 - 保持原始质量，不压缩
-const compressionOptions = {
-  maxSizeMB: 50,          // 提高到50MB（基本不会触发压缩）
-  maxWidthOrHeight: 8192, // 提高到8192px（8K分辨率）
-  useWebWorker: true,
-  alwaysKeepResolution: true, // 保持原始分辨率
-};
-
-// 生成UUID
-const generateId = (): string => {
-  return crypto.randomUUID();
-};
-
-// 将Blob转换为Base64
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
-// 将Base64转换为Blob
-const base64ToBlob = (base64: string): Blob => {
-  const arr = base64.split(',');
-  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-};
+import type { Memory, Photo } from '../db/db';
+import {
+  getMemories,
+  createMemory as createMemoryDB,
+  updateMemory as updateMemoryDB,
+  deleteMemory as deleteMemoryDB,
+  getPhotos,
+  uploadPhoto,
+  deletePhoto
+} from '../services/dataService';
+import { getCurrentUser } from '../services/authService';
 
 export const useMemories = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -47,7 +20,7 @@ export const useMemories = () => {
   const loadMemories = useCallback(async () => {
     setLoading(true);
     try {
-      const memoryList = await db.memories.orderBy('date').reverse().toArray();
+      const memoryList = await getMemories();
       setMemories(memoryList);
       setError(null);
     } catch (err) {
@@ -63,23 +36,6 @@ export const useMemories = () => {
     loadMemories();
   }, [loadMemories]);
 
-  // 压缩图片（保持原始质量）
-  const compressImage = useCallback(async (file: File): Promise<File> => {
-    try {
-      // 如果文件小于限制，直接返回原文件
-      if (file.size <= compressionOptions.maxSizeMB * 1024 * 1024) {
-        return file;
-      }
-      // 只有超过50MB的图片才会压缩（极少情况）
-      const compressed = await imageCompression(file, compressionOptions);
-      console.log(`图片压缩: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
-      return compressed;
-    } catch (err) {
-      console.error('图片处理失败:', err);
-      return file;
-    }
-  }, []);
-
   // 创建记忆
   const createMemory = useCallback(async (
     date: string,
@@ -88,73 +44,35 @@ export const useMemories = () => {
   ): Promise<void> => {
     setLoading(true);
     try {
-      const now = Date.now();
-      const photoIds: string[] = [];
+      console.log('📝 创建记忆:', { date, note, filesCount: files.length });
 
-      // 检查是否已存在相同日期的记忆
-      const existingMemory = await db.memories.where('date').equals(date).first();
+      // 1. 创建记忆记录
+      const memoryId = await createMemoryDB(date, note);
+      console.log('✅ 记忆记录创建成功, ID:', memoryId);
 
-      let memoryId: string;
-      let existingPhotoIds: string[] = [];
-
-      if (existingMemory) {
-        // 如果存在，使用现有记忆ID
-        memoryId = existingMemory.id;
-        existingPhotoIds = existingMemory.photoIds;
-      } else {
-        // 如果不存在，创建新记忆ID
-        memoryId = generateId();
+      // 2. 上传照片
+      const user = getCurrentUser();
+      if (!user) {
+        throw new Error('用户未登录');
       }
 
-      // 压缩并保存图片
       for (const file of files) {
-        const compressedFile = await compressImage(file);
-        const photoId = generateId();
-
-        await db.photos.add({
-          id: photoId,
-          memoryId,
-          blob: new Blob([await compressedFile.arrayBuffer()], { type: compressedFile.type }),
-          mimeType: compressedFile.type,
-          createdAt: now,
-        });
-
-        photoIds.push(photoId);
+        console.log('📤 准备上传照片:', file.name);
+        await uploadPhoto(memoryId, file, user.id);
       }
 
-      // 合并现有照片ID和新照片ID
-      const allPhotoIds = [...existingPhotoIds, ...photoIds];
-
-      if (existingMemory) {
-        // 更新现有记忆
-        await db.memories.update(memoryId, {
-          note: note || existingMemory.note, // 如果有新备注则更新，否则保持原备注
-          photoIds: allPhotoIds,
-          updatedAt: now,
-        });
-      } else {
-        // 创建新记忆
-        await db.memories.add({
-          id: memoryId,
-          date,
-          note,
-          photoIds: allPhotoIds,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-
-      // 重新加载记忆列表
+      // 3. 重新加载记忆列表
       await loadMemories();
       setError(null);
+      console.log('✅ 记忆创建完成');
     } catch (err) {
       setError('创建记忆失败');
-      console.error(err);
+      console.error('❌ 创建记忆异常:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [compressImage, loadMemories]);
+  }, [loadMemories]);
 
   // 更新记忆
   const updateMemory = useCallback(async (
@@ -166,72 +84,56 @@ export const useMemories = () => {
   ): Promise<void> => {
     setLoading(true);
     try {
-      const memory = await db.memories.get(id);
-      if (!memory) throw new Error('记忆不存在');
+      console.log('📝 更新记忆:', { id, date, note, newFilesCount: newFiles.length, removedPhotoIds });
 
-      const now = Date.now();
-      const updatedPhotoIds = memory.photoIds.filter(id => !removedPhotoIds.includes(id));
+      // 1. 更新记忆记录
+      await updateMemoryDB(id, date, note);
+      console.log('✅ 记忆记录更新成功');
 
-      // 处理新增图片
+      // 2. 上传新照片
+      const user = getCurrentUser();
+      if (!user) {
+        throw new Error('用户未登录');
+      }
+
       for (const file of newFiles) {
-        const compressedFile = await compressImage(file);
-        const photoId = generateId();
-        
-        await db.photos.add({
-          id: photoId,
-          memoryId: id,
-          blob: new Blob([await compressedFile.arrayBuffer()], { type: compressedFile.type }),
-          mimeType: compressedFile.type,
-          createdAt: now,
-        });
-        
-        updatedPhotoIds.push(photoId);
+        console.log('📤 准备上传新照片:', file.name);
+        await uploadPhoto(id, file, user.id);
       }
 
-      // 处理移除的图片
-      if (removedPhotoIds.length > 0) {
-        await db.photos.where('id').anyOf(removedPhotoIds).delete();
+      // 3. 删除指定的照片
+      for (const id of removedPhotoIds) {
+        console.log('🗑️ 删除照片:', id);
+        await deletePhoto(id);
       }
 
-      // 更新记忆
-      await db.memories.update(id, {
-        date,
-        note,
-        photoIds: updatedPhotoIds,
-        updatedAt: now,
-      });
-
-      // 重新加载记忆列表
+      // 4. 重新加载记忆列表
       await loadMemories();
       setError(null);
+      console.log('✅ 记忆更新完成');
     } catch (err) {
       setError('更新记忆失败');
-      console.error(err);
+      console.error('❌ 更新记忆异常:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [compressImage, loadMemories]);
+  }, [loadMemories]);
 
   // 删除记忆（级联删除关联图片）
   const deleteMemory = useCallback(async (id: string): Promise<void> => {
     setLoading(true);
     try {
-      const memory = await db.memories.get(id);
-      if (!memory) throw new Error('记忆不存在');
-
-      // 级联删除关联图片
-      await db.photos.where('memoryId').equals(id).delete();
-      
-      // 删除记忆
-      await db.memories.delete(id);
+      console.log('🗑️ 删除记忆:', id);
+      await deleteMemoryDB(id);
+      console.log('✅ 记忆删除成功');
 
       // 重新加载记忆列表
       await loadMemories();
       setError(null);
     } catch (err) {
       setError('删除记忆失败');
-      console.error(err);
+      console.error('❌ 删除记忆异常:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -241,111 +143,37 @@ export const useMemories = () => {
   // 根据记忆ID获取图片
   const getPhotosByMemoryId = useCallback(async (memoryId: string): Promise<Photo[]> => {
     try {
-      return await db.photos.where('memoryId').equals(memoryId).toArray();
+      console.log('📷 [useMemories] 获取记忆的照片:', memoryId);
+      const photos = await getPhotos(memoryId);
+
+      console.log('✅ [useMemories] 获取到', photos.length, '张照片');
+      photos.forEach((photo, index) => {
+        console.log(`  照片 ${index + 1}:`, {
+          id: photo.id,
+          hasPublicUrl: !!photo.publicUrl,
+          hasBlob: !!photo.blob,
+          publicUrl: photo.publicUrl?.substring(0, 80) + '...'
+        });
+      });
+
+      return photos;
     } catch (err) {
-      console.error('获取图片失败:', err);
+      console.error('❌ [useMemories] 获取图片失败:', err);
       return [];
     }
   }, []);
 
-  // 获取单个图片
-  const getPhoto = useCallback(async (photoId: string): Promise<Photo | undefined> => {
+  // 获取单个图片（从Supabase不支持直接获取单个photo，但保留接口兼容性）
+  const getPhoto = useCallback(async (_photoId: string): Promise<Photo | undefined> => {
     try {
-      return await db.photos.get(photoId);
+      // Supabase版本暂不支持此功能，返回undefined
+      console.warn('⚠️ getPhoto功能在Supabase版本中暂不支持');
+      return undefined;
     } catch (err) {
-      console.error('获取图片失败:', err);
+      console.error('❌ 获取图片失败:', err);
       return undefined;
     }
   }, []);
-
-  // 导出数据
-  const exportData = useCallback(async (): Promise<void> => {
-    setLoading(true);
-    try {
-      // 获取所有记忆和图片
-      const allMemories = await db.memories.toArray();
-      const allPhotos = await db.photos.toArray();
-
-      // 将Blob转换为Base64
-      const photosWithBase64 = await Promise.all(
-        allPhotos.map(async (photo) => {
-          const base64 = await blobToBase64(photo.blob);
-          return {
-            ...photo,
-            blob: base64, // 替换为Base64字符串
-          };
-        })
-      );
-
-      // 组装导出数据
-      const exportData = {
-        version: '1.0',
-        exportedAt: Date.now(),
-        memories: allMemories,
-        photos: photosWithBase64,
-      };
-
-      // 创建下载链接
-      const dataStr = JSON.stringify(exportData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `moment-sharing-export-${new Date().toISOString().split('T')[0]}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      setError(null);
-    } catch (err) {
-      setError('导出数据失败');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // 导入数据
-  const importData = useCallback(async (file: File): Promise<void> => {
-    setLoading(true);
-    try {
-      const text = await file.text();
-      const importData = JSON.parse(text);
-
-      // 开始事务
-      await db.transaction('rw', [db.memories, db.photos], async () => {
-        // 清空现有数据
-        await db.memories.clear();
-        await db.photos.clear();
-
-        // 将Base64转换为Blob并保存图片
-        const savedPhotos = await Promise.all(
-          (importData.photos || []).map(async (photo: any) => {
-            const blob = base64ToBlob(photo.blob);
-            return {
-              ...photo,
-              blob,
-            };
-          })
-        );
-
-        // 批量保存图片
-        await db.photos.bulkAdd(savedPhotos);
-
-        // 批量保存记忆
-        await db.memories.bulkAdd(importData.memories || []);
-      });
-
-      // 重新加载记忆列表
-      await loadMemories();
-      setError(null);
-    } catch (err) {
-      setError('导入数据失败');
-      console.error(err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [loadMemories]);
 
   return {
     memories,
@@ -356,8 +184,6 @@ export const useMemories = () => {
     deleteMemory,
     getPhotosByMemoryId,
     getPhoto,
-    exportData,
-    importData,
     loadMemories,
   };
 };

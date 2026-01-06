@@ -12,6 +12,7 @@ interface ImageViewerProps {
     memoryDate: string;
     memoryNote: string;
     memoryId: string;
+    publicUrl?: string;
   }>;
   currentIndex: number;
   onIndexChange: (index: number) => void;
