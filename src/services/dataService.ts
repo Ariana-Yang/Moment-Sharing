@@ -48,12 +48,16 @@ export interface PhotoDB {
   memory_id: string;
   user_id: string;
   storage_path: string;
+  original_storage_path: string | null; // 原图路径
   public_url: string;
+  original_public_url: string | null; // 原图URL
   thumbnail_url: string | null;
   mime_type: string | null;
   file_size: number | null;
+  original_file_size: number | null; // 原图大小
   width: number | null;
   height: number | null;
+  display_order: number | null; // 显示顺序
   created_at: string;
 }
 
@@ -275,7 +279,7 @@ export const deleteMemory = async (memoryId: string): Promise<void> => {
 // ========== 照片管理 ==========
 
 /**
- * 获取记忆的所有照片
+ * 获取记忆的所有照片(按显示顺序排序)
  */
 export const getPhotos = async (memoryId: string): Promise<Photo[]> => {
   try {
@@ -285,6 +289,7 @@ export const getPhotos = async (memoryId: string): Promise<Photo[]> => {
       .from(TABLES.PHOTOS)
       .select('*')
       .eq('memory_id', memoryId)
+      .order('display_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -294,10 +299,11 @@ export const getPhotos = async (memoryId: string): Promise<Photo[]> => {
 
     console.log('  从数据库获取到', data?.length || 0, '张照片');
 
-    const photos = data.map((p: PhotoDB) => {
-      console.log(`  照片 ${p.id}:`, {
+    const photos = data.map((p: PhotoDB, index: number) => {
+      console.log(`  照片 ${index + 1} (${p.id}):`, {
+        displayOrder: p.display_order,
         publicUrl: p.public_url?.substring(0, 80) + '...',
-        storagePath: p.storage_path
+        hasOriginal: !!p.original_public_url,
       });
 
       return {
@@ -307,11 +313,12 @@ export const getPhotos = async (memoryId: string): Promise<Photo[]> => {
         mimeType: p.mime_type || 'image/jpeg',
         createdAt: new Date(p.created_at).getTime(),
         publicUrl: p.public_url,
+        originalPublicUrl: p.original_public_url || undefined,
         thumbnailUrl: p.thumbnail_url || undefined,
       };
     });
 
-    console.log('✅ 照片数据转换完成');
+    console.log('✅ 照片数据转换完成,已按display_order排序');
     return photos;
   } catch (error) {
     console.error('获取照片异常:', error);
@@ -320,18 +327,20 @@ export const getPhotos = async (memoryId: string): Promise<Photo[]> => {
 };
 
 /**
- * 上传照片
+ * 上传单张照片(双版本:原图+压缩图)
  */
 export const uploadPhoto = async (
   memoryId: string,
   file: File,
-  userId: string
+  userId: string,
+  displayOrder: number
 ): Promise<Photo> => {
   try {
     console.log('📤 上传照片...');
     console.log('  记忆ID:', memoryId);
     console.log('  文件名:', file.name);
     console.log('  原始大小:', (file.size / 1024).toFixed(2), 'KB');
+    console.log('  显示顺序:', displayOrder);
 
     // 1. 压缩图片
     console.log('🔧 压缩图片中...');
@@ -340,32 +349,40 @@ export const uploadPhoto = async (
 
     // 2. 生成唯一文件名
     const photoId = crypto.randomUUID();
-    const fileExt = 'jpg'; // 统一使用jpg格式
-    const fileName = `${photoId}.${fileExt}`;
+    const originalFileName = `${photoId}_original.jpg`;
+    const compressedFileName = `${photoId}_compressed.jpg`;
 
-    console.log('  生成文件名:', fileName);
+    console.log('  生成文件名:', compressedFileName);
 
-    // 3. 上传压缩后的图片
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from(BUCKETS.PHOTOS)
-      .upload(`${userId}/${memoryId}/${fileName}`, compressedFile);
+    // 3. 并发上传原图和压缩图
+    console.log('📤 并发上传原图和压缩图...');
+    const [originalUpload, compressedUpload] = await Promise.all([
+      supabase.storage.from(BUCKETS.PHOTOS).upload(`${userId}/${memoryId}/${originalFileName}`, file),
+      supabase.storage.from(BUCKETS.PHOTOS).upload(`${userId}/${memoryId}/${compressedFileName}`, compressedFile)
+    ]);
 
-    if (uploadError) {
-      console.error('  上传失败:', uploadError);
-      throw uploadError;
+    // 检查上传错误
+    if (originalUpload.error) {
+      console.error('  原图上传失败:', originalUpload.error);
+      throw originalUpload.error;
+    }
+    if (compressedUpload.error) {
+      console.error('  压缩图上传失败:', compressedUpload.error);
+      throw compressedUpload.error;
     }
 
-    console.log('  文件上传成功:', uploadData.path);
+    console.log('  原图上传成功:', originalUpload.data.path);
+    console.log('  压缩图上传成功:', compressedUpload.data.path);
 
     // 4. 获取公共URL
-    const { data: urlData } = supabase
-      .storage
-      .from(BUCKETS.PHOTOS)
-      .getPublicUrl(uploadData.path);
+    const originalUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(originalUpload.data.path);
+    const compressedUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(compressedUpload.data.path);
 
-    const publicUrl = urlData.publicUrl;
-    console.log('  公共URL:', publicUrl);
+    const originalPublicUrl = originalUrlData.publicUrl;
+    const compressedPublicUrl = compressedUrlData.publicUrl;
+
+    console.log('  原图URL:', originalPublicUrl.substring(0, 80) + '...');
+    console.log('  压缩图URL:', compressedPublicUrl.substring(0, 80) + '...');
 
     // 5. 获取图片尺寸
     const dimensions = await getImageDimensions(compressedFile);
@@ -378,13 +395,17 @@ export const uploadPhoto = async (
       .insert({
         memory_id: memoryId,
         user_id: userId,
-        storage_path: uploadData.path,
-        public_url: publicUrl,
+        storage_path: compressedUpload.data.path,
+        original_storage_path: originalUpload.data.path,
+        public_url: compressedPublicUrl,
+        original_public_url: originalPublicUrl,
         thumbnail_url: null, // 暂时没有缩略图
         mime_type: compressedFile.type,
         file_size: compressedFile.size,
+        original_file_size: file.size,
         width: dimensions.width,
         height: dimensions.height,
+        display_order: displayOrder,
       })
       .select()
       .single();
@@ -395,6 +416,7 @@ export const uploadPhoto = async (
     }
 
     console.log('✅ 照片记录创建成功, ID:', photoData.id);
+    console.log('  记录了显示顺序:', displayOrder);
 
     // 7. 更新记忆的照片计数
     // 先获取当前计数
@@ -420,6 +442,7 @@ export const uploadPhoto = async (
       mimeType: photoData.mime_type || compressedFile.type,
       createdAt: new Date(photoData.created_at).getTime(),
       publicUrl: photoData.public_url,
+      originalPublicUrl: photoData.original_public_url || undefined,
     };
   } catch (error) {
     console.error('❌ 上传照片异常:', error);
@@ -428,14 +451,44 @@ export const uploadPhoto = async (
 };
 
 /**
- * 删除照片
+ * 批量并发上传照片
+ */
+export const uploadPhotos = async (
+  memoryId: string,
+  files: File[],
+  userId: string,
+  onProgress?: (current: number, total: number, fileName: string) => void
+): Promise<Photo[]> => {
+  try {
+    console.log('📤 开始批量并发上传', files.length, '张照片...');
+
+    // 并发上传所有照片
+    const uploadPromises = files.map((file, index) => {
+      onProgress?.(index + 1, files.length, file.name);
+      return uploadPhoto(memoryId, file, userId, index);
+    });
+
+    const results = await Promise.all(uploadPromises);
+
+    console.log('✅ 批量上传完成!');
+    return results;
+  } catch (error) {
+    console.error('❌ 批量上传异常:', error);
+    throw error;
+  }
+};
+
+// ========== 照片管理 ==========
+
+/**
+ * 删除照片(包括原图和压缩图)
  */
 export const deletePhoto = async (photoId: string): Promise<void> => {
   try {
     // 获取照片信息
     const { data: photo } = await supabase
       .from(TABLES.PHOTOS)
-      .select('memory_id, storage_path')
+      .select('memory_id, storage_path, original_storage_path, thumbnail_url')
       .eq('id', photoId)
       .single();
 
@@ -443,14 +496,22 @@ export const deletePhoto = async (photoId: string): Promise<void> => {
       throw new Error('照片不存在');
     }
 
-    // 删除存储文件
-    const { error: storageError } = await supabase
-      .storage
-      .from(BUCKETS.PHOTOS)
-      .remove([photo.storage_path]);
+    // 删除存储文件(压缩图、原图、缩略图)
+    const filesToDelete = [
+      photo.storage_path,
+      photo.original_storage_path,
+      photo.thumbnail_url,
+    ].filter(Boolean) as string[];
 
-    if (storageError) {
-      console.error('删除存储文件失败:', storageError);
+    if (filesToDelete.length > 0) {
+      const { error: storageError } = await supabase
+        .storage
+        .from(BUCKETS.PHOTOS)
+        .remove(filesToDelete);
+
+      if (storageError) {
+        console.error('删除存储文件失败:', storageError);
+      }
     }
 
     // 删除数据库记录
@@ -516,5 +577,6 @@ export default {
   deleteMemory,
   getPhotos,
   uploadPhoto,
+  uploadPhotos,
   deletePhoto,
 };

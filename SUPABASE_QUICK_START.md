@@ -167,7 +167,7 @@
    - 点击 "Policies"
    - 添加以下策略：
 
-   **策略1：公开读取（允许任何人查看照片）**
+   **策略1：公开读取（允许任何人查看照片）**baobang
    ```sql
    CREATE POLICY "Public Access"
    ON storage.objects

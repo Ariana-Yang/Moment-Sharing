@@ -6,7 +6,7 @@ import {
   updateMemory as updateMemoryDB,
   deleteMemory as deleteMemoryDB,
   getPhotos,
-  uploadPhoto,
+  uploadPhotos,
   deletePhoto
 } from '../services/dataService';
 import { getCurrentUser } from '../services/authService';
@@ -50,16 +50,15 @@ export const useMemories = () => {
       const memoryId = await createMemoryDB(date, note);
       console.log('✅ 记忆记录创建成功, ID:', memoryId);
 
-      // 2. 上传照片
+      // 2. 并发上传照片
       const user = getCurrentUser();
       if (!user) {
         throw new Error('用户未登录');
       }
 
-      for (const file of files) {
-        console.log('📤 准备上传照片:', file.name);
-        await uploadPhoto(memoryId, file, user.id);
-      }
+      console.log('📤 开始并发上传', files.length, '张照片');
+      await uploadPhotos(memoryId, files, user.id);
+      console.log('✅ 所有照片上传完成');
 
       // 3. 重新加载记忆列表
       await loadMemories();
@@ -90,15 +89,16 @@ export const useMemories = () => {
       await updateMemoryDB(id, date, note);
       console.log('✅ 记忆记录更新成功');
 
-      // 2. 上传新照片
+      // 2. 并发上传新照片
       const user = getCurrentUser();
       if (!user) {
         throw new Error('用户未登录');
       }
 
-      for (const file of newFiles) {
-        console.log('📤 准备上传新照片:', file.name);
-        await uploadPhoto(id, file, user.id);
+      if (newFiles.length > 0) {
+        console.log('📤 开始并发上传', newFiles.length, '张新照片');
+        await uploadPhotos(id, newFiles, user.id);
+        console.log('✅ 所有新照片上传完成');
       }
 
       // 3. 删除指定的照片

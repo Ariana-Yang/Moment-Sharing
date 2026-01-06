@@ -1,0 +1,30 @@
+timestamp,message
+2026-01-06 09:28:41,[Zeabur] Pod/service-695ccaf492a59f5932903047-58c44bd8d-jll52 - NotTriggerScaleUp: pod didn't trigger scale-up: 
+2026-01-06 09:30:22,"[Zeabur] Pod/service-695ccaf492a59f5932903047-58c44bd8d-jll52 - Pulling: Pulling image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"""
+2026-01-06 09:31:34,[Zeabur] Pod/service-695ccaf492a59f5932903047-75db445684-srmjx - NotTriggerScaleUp: pod didn't trigger scale-up: 
+2026-01-06 09:31:58,"[Zeabur] Pod/service-695ccaf492a59f5932903047-58c44bd8d-jll52 - Evicted: The node was low on resource: ephemeral-storage. Threshold quantity: 7344553274, available: 488524Ki. "
+2026-01-06 09:32:06,"[Zeabur] Pod/service-695ccaf492a59f5932903047-58c44bd8d-jll52 - Pulled: Successfully pulled image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"" in 1m44.726s (1m44.726s including waiting). Image size: 18250113 bytes."
+2026-01-06 09:32:06,[Zeabur] Pod/service-695ccaf492a59f5932903047-58c44bd8d-jll52 - Created: Created container: moment-sharing
+2026-01-06 09:32:06,[Zeabur] Pod/service-695ccaf492a59f5932903047-58c44bd8d-jll52 - Started: Started container moment-sharing
+2026-01-06 09:36:41,[Zeabur] Pod/service-695ccaf492a59f5932903047-75db445684-srmjx - NotTriggerScaleUp: pod didn't trigger scale-up: 
+2026-01-06 09:39:10,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - NotTriggerScaleUp: pod didn't trigger scale-up: 
+2026-01-06 09:41:52,"[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Pulling: Pulling image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"""
+2026-01-06 09:42:16,/bin/sh: npm: not found
+2026-01-06 09:42:19,"[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Pulled: Successfully pulled image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"" in 17.56s (17.56s including waiting). Image size: 18250113 bytes."
+2026-01-06 09:42:20,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Created: Created container: moment-sharing
+2026-01-06 09:42:20,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Started: Started container moment-sharing
+2026-01-06 09:42:20,"[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Pulling: Pulling image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"""
+2026-01-06 09:42:59,"[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Pulled: Successfully pulled image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"" in 42.669s (42.669s including waiting). Image size: 18250113 bytes."
+2026-01-06 09:43:16,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Created: Created container: moment-sharing
+2026-01-06 09:43:18,/bin/sh: npm: not found
+2026-01-06 09:43:19,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Started: Started container moment-sharing
+2026-01-06 09:43:21,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - BackOff: Back-off restarting failed container moment-sharing in pod service-695ccaf492a59f5932903047-5999f567f4-r8dwh_environment-695b3052a7aaff0c11528c35(41b8e591-e7fb-4a3e-beba-58653fb886b7)
+2026-01-06 09:43:22,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - BackOff: Back-off restarting failed container moment-sharing in pod service-695ccaf492a59f5932903047-5999f567f4-r8dwh_environment-695b3052a7aaff0c11528c35(41b8e591-e7fb-4a3e-beba-58653fb886b7)
+2026-01-06 09:43:37,"[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Pulling: Pulling image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"""
+2026-01-06 09:44:13,"[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Pulled: Successfully pulled image ""registry-oci.zeabur.cloud/e-695b3052a7aaff0c11528c35/s-695ccaf492a59f5932903047:d-695cd57a8c3f077bbf8e17e7"" in 36.236s (36.237s including waiting). Image size: 18250113 bytes."
+2026-01-06 09:44:30,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Created: Created container: moment-sharing
+2026-01-06 09:44:32,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - Started: Started container moment-sharing
+2026-01-06 09:44:32,/bin/sh: npm: not found
+2026-01-06 09:44:34,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - BackOff: Back-off restarting failed container moment-sharing in pod service-695ccaf492a59f5932903047-5999f567f4-r8dwh_environment-695b3052a7aaff0c11528c35(41b8e591-e7fb-4a3e-beba-58653fb886b7)
+2026-01-06 09:44:35,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - BackOff: Back-off restarting failed container moment-sharing in pod service-695ccaf492a59f5932903047-5999f567f4-r8dwh_environment-695b3052a7aaff0c11528c35(41b8e591-e7fb-4a3e-beba-58653fb886b7)
+2026-01-06 09:44:48,[Zeabur] Pod/service-695ccaf492a59f5932903047-5999f567f4-r8dwh - BackOff: Back-off restarting failed container moment-sharing in pod service-695ccaf492a59f5932903047-5999f567f4-r8dwh_environment-695b3052a7aaff0c11528c35(41b8e591-e7fb-4a3e-beba-58653fb886b7)

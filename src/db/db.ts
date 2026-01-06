@@ -17,7 +17,8 @@ export interface Photo {
   blob: Blob;
   mimeType: string;
   createdAt: number;
-  publicUrl?: string; // Supabase存储的公共URL
+  publicUrl?: string; // Supabase存储的压缩图公共URL
+  originalPublicUrl?: string; // Supabase存储的原图公共URL
   thumbnailUrl?: string; // 缩略图URL
 }
 
