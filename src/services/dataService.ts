@@ -71,6 +71,7 @@ export interface Photo {
   mimeType: string;
   createdAt: number;
   publicUrl?: string;
+  originalPublicUrl?: string;
   thumbnailUrl?: string;
 }
 
@@ -383,13 +384,9 @@ export const uploadPhoto = async (
     console.log('  缩略图上传成功:', thumbnailUpload.data.path);
 
     // 4. 获取公共URL
-    const originalUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(originalUpload.data.path);
-    const previewUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(previewUpload.data.path);
-    const thumbnailUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(thumbnailUpload.data.path);
-
-    const originalPublicUrl = originalUrlData.publicUrl;
-    const previewPublicUrl = previewUrlData.publicUrl;
-    const thumbnailPublicUrl = thumbnailUrlData.publicUrl;
+    const originalPublicUrl = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(originalUpload.data.path).data.publicUrl;
+    const previewPublicUrl = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(previewUpload.data.path).data.publicUrl;
+    const thumbnailPublicUrl = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(thumbnailUpload.data.path).data.publicUrl;
 
     console.log('  原图URL:', originalPublicUrl.substring(0, 80) + '...');
     console.log('  预览图URL:', previewPublicUrl.substring(0, 80) + '...');
