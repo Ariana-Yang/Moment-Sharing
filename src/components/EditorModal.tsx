@@ -173,7 +173,7 @@ const EditorModal = ({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               min="2020-01-01"
-              max="2029-12-31"
+              max={getTodayDate()}
               className="w-full px-4 py-3 border-2 border-gallery-cream-dark/30 dark:border-gallery-cream-dark/30 rounded-xl text-gallery-deep-teal dark:text-gallery-cream bg-white dark:bg-white/5 focus:outline-none focus:border-gallery-gold dark:focus:border-gallery-gold transition-all duration-300 font-medium"
               required
             />

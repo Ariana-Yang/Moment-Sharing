@@ -300,13 +300,17 @@ function App() {
         console.log(`  [App] 照片 ${index + 1}:`, {
           id: photo.id,
           hasPublicUrl: !!(photo as any).publicUrl,
+          hasOriginalPublicUrl: !!(photo as any).originalPublicUrl,
           urlType: (photo as any).publicUrl ? 'publicUrl' : 'blob',
           url: url.substring(0, 80) + '...'
         });
 
         return {
           ...photo,
-          url
+          url,
+          // 保留所有URL字段
+          publicUrl: (photo as any).publicUrl,
+          originalPublicUrl: (photo as any).originalPublicUrl
         };
       });
 

@@ -25,11 +25,11 @@ const PREVIEW_OPTIONS = {
  * 缩略图压缩配置 (列表快速预览)
  */
 const THUMBNAIL_OPTIONS = {
-  maxSizeMB: 0.02, // 最大20KB (从50KB降低)
-  maxWidthOrHeight: 200, // 最大尺寸200px (从300px降低)
+  maxSizeMB: 0.05, // 最大50KB (从20KB提高，更清晰)
+  maxWidthOrHeight: 400, // 最大尺寸400px (从200px提高，更清晰)
   useWebWorker: true,
   fileType: 'image/jpeg',
-  quality: 0.5, // 从0.6降到0.5，加快压缩速度
+  quality: 0.75, // 质量75% (从50%提高，更清晰)
 } as const;
 
 /**

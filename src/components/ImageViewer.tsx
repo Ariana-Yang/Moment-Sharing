@@ -13,6 +13,7 @@ interface ImageViewerProps {
     memoryNote: string;
     memoryId: string;
     publicUrl?: string;
+    originalPublicUrl?: string; // 原图URL
   }>;
   currentIndex: number;
   onIndexChange: (index: number) => void;
@@ -110,7 +111,7 @@ export const ImageViewer = ({
   // 重置缩放和位置
   useEffect(() => {
     handleResetZoom();
-    
+
     // 当图片索引变化时，如果提供了onMemoryChange，则更新记忆信息
     if (onMemoryChange && images.length > 0 && currentIndex >= 0 && currentIndex < images.length) {
       const currentImage = images[currentIndex];
@@ -120,6 +121,27 @@ export const ImageViewer = ({
       });
     }
   }, [currentIndex, images, onMemoryChange]);
+
+  // 预加载相邻图片（加快切换速度）
+  useEffect(() => {
+    if (!isOpen || images.length === 0) return;
+
+    const preloadImage = (url: string) => {
+      const img = new Image();
+      img.src = url;
+    };
+
+    // 预加载前一张和后一张
+    const prevIndex = (currentIndex - 1 + images.length) % images.length;
+    const nextIndex = (currentIndex + 1) % images.length;
+
+    // 优先使用原图URL，如果没有则使用当前URL
+    const prevUrl = images[prevIndex]?.publicUrl || images[prevIndex]?.url;
+    const nextUrl = images[nextIndex]?.publicUrl || images[nextIndex]?.url;
+
+    if (prevUrl) preloadImage(prevUrl);
+    if (nextUrl) preloadImage(nextUrl);
+  }, [isOpen, currentIndex, images]);
 
   // 点击关闭时重置状态
   useEffect(() => {
@@ -175,8 +197,10 @@ export const ImageViewer = ({
 
       const currentImage = images[currentIndex];
 
-      // 从 publicUrl 下载图片数据
-      if (!currentImage.publicUrl) {
+      // 优先下载原图，如果没有原图则下载预览图
+      const downloadUrl = currentImage.originalPublicUrl || currentImage.publicUrl || currentImage.url;
+
+      if (!downloadUrl) {
         throw new Error('图片 URL 不存在');
       }
 
@@ -195,8 +219,8 @@ export const ImageViewer = ({
 
       const progressInterval = simulateProgress();
 
-      // 从 publicUrl 获取实际的图片数据
-      const response = await fetch(currentImage.publicUrl);
+      // 从URL获取实际的图片数据
+      const response = await fetch(downloadUrl);
       if (!response.ok) {
         throw new Error(`下载失败: ${response.statusText}`);
       }
