@@ -22,8 +22,8 @@ EXPOSE 5173
 # 设置环境变量
 ENV NODE_ENV=production
 
-# 设置健康检查(使用动态PORT)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+# 设置健康检查(使用动态PORT，增加启动等待时间)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD sh -c "node -e \"require('http').get('http://localhost:' + (process.env.PORT || 5173), (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})\""
 
 # 启动应用
