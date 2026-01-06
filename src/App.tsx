@@ -387,7 +387,7 @@ function App() {
           current={uploadProgress.current}
           total={uploadProgress.total}
           fileName={uploadProgress.fileName}
-          isUploading={uploadProgress.current < uploadProgress.total}
+          stage={uploadProgress.stage}
         />
       )}
 

@@ -18,7 +18,7 @@ const PREVIEW_OPTIONS = {
   maxWidthOrHeight: 1920, // 最大尺寸
   useWebWorker: true,
   fileType: 'image/jpeg',
-  quality: 0.85,
+  quality: 0.8, // 从0.85降到0.8，加快压缩速度
 } as const;
 
 /**
@@ -29,7 +29,7 @@ const THUMBNAIL_OPTIONS = {
   maxWidthOrHeight: 200, // 最大尺寸200px (从300px降低)
   useWebWorker: true,
   fileType: 'image/jpeg',
-  quality: 0.6, // 质量60% (从70%降低)
+  quality: 0.5, // 从0.6降到0.5，加快压缩速度
 } as const;
 
 /**

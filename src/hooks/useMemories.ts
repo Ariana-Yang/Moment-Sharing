@@ -21,6 +21,7 @@ export const useMemories = () => {
     current: number;
     total: number;
     fileName: string;
+    stage: 'compressing' | 'uploading';
   } | null>(null);
 
   // 加载记忆列表
@@ -64,8 +65,8 @@ export const useMemories = () => {
       }
 
       console.log('📤 开始并发上传', files.length, '张照片');
-      await uploadPhotos(memoryId, files, user.id, (current, total, fileName) => {
-        setUploadProgress({ current, total, fileName });
+      await uploadPhotos(memoryId, files, user.id, (current, total, fileName, stage) => {
+        setUploadProgress({ current, total, fileName, stage });
       });
       setUploadProgress(null);
       console.log('✅ 所有照片上传完成');
@@ -107,8 +108,8 @@ export const useMemories = () => {
 
       if (newFiles.length > 0) {
         console.log('📤 开始并发上传', newFiles.length, '张新照片');
-        await uploadPhotos(id, newFiles, user.id, (current, total, fileName) => {
-          setUploadProgress({ current, total, fileName });
+        await uploadPhotos(id, newFiles, user.id, (current, total, fileName, stage) => {
+          setUploadProgress({ current, total, fileName, stage });
         });
         setUploadProgress(null);
         console.log('✅ 所有新照片上传完成');
