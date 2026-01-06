@@ -6,6 +6,7 @@ import { AddButton } from './components/AddButton';
 import { TimelineSidebar } from './components/TimelineSidebar';
 import EditorModal from './components/EditorModal';
 import { ImageViewer } from './components/ImageViewer';
+import { UploadProgress } from './components/UploadProgress';
 import { PasswordModal } from './components/PasswordModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ShareSettingsModal } from './components/ShareSettingsModal';
@@ -23,6 +24,7 @@ function App() {
     memories,
     loading,
     error,
+    uploadProgress,
     createMemory,
     updateMemory,
     deleteMemory,
@@ -379,6 +381,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gallery-cream dark:bg-gallery-midnight transition-colors duration-500 noise-bg">
+      {/* 上传进度条 */}
+      {uploadProgress && (
+        <UploadProgress
+          current={uploadProgress.current}
+          total={uploadProgress.total}
+          fileName={uploadProgress.fileName}
+          isUploading={uploadProgress.current < uploadProgress.total}
+        />
+      )}
+
       {/* 密码模态框 - 始终显示在最上层 */}
       <PasswordModal
         isOpen={isPasswordModalOpen}

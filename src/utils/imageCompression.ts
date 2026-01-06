@@ -5,19 +5,31 @@
  * - 自动压缩到合理大小
  * - 保持视觉质量
  * - 支持进度回调
+ * - 生成缩略图
  */
 
 import imageCompression from 'browser-image-compression';
 
 /**
- * 压缩配置
+ * 预览图压缩配置
  */
-const COMPRESSION_OPTIONS = {
+const PREVIEW_OPTIONS = {
   maxSizeMB: 0.5, // 最大500KB
   maxWidthOrHeight: 1920, // 最大尺寸
-  useWebWorker: true, // 使用Web Worker避免阻塞UI
-  fileType: 'image/jpeg', // 统一转为JPEG
-  quality: 0.85, // 质量85%
+  useWebWorker: true,
+  fileType: 'image/jpeg',
+  quality: 0.85,
+} as const;
+
+/**
+ * 缩略图压缩配置
+ */
+const THUMBNAIL_OPTIONS = {
+  maxSizeMB: 0.05, // 最大50KB
+  maxWidthOrHeight: 300, // 最大尺寸300px
+  useWebWorker: true,
+  fileType: 'image/jpeg',
+  quality: 0.7,
 } as const;
 
 /**
@@ -40,12 +52,12 @@ export const compressImage = async (
     }
 
     // 压缩图片
-    const compressedFile = await imageCompression(file, COMPRESSION_OPTIONS);
+    const compressedFile = await imageCompression(file, PREVIEW_OPTIONS);
 
     const duration = Date.now() - startTime;
     const reduction = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
 
-    console.log('✅ 压缩完成!');
+    console.log('✅ 预览图压缩完成!');
     console.log('  压缩后大小:', (compressedFile.size / 1024).toFixed(2), 'KB');
     console.log('  压缩率:', reduction + '%');
     console.log('  耗时:', duration, 'ms');
@@ -56,6 +68,34 @@ export const compressImage = async (
   } catch (error) {
     console.error('❌ 压缩失败:', error);
     // 压缩失败时返回原文件
+    return file;
+  }
+};
+
+/**
+ * 生成缩略图
+ */
+export const generateThumbnail = async (
+  file: File
+): Promise<File> => {
+  try {
+    console.log('🖼️ 生成缩略图...');
+
+    const startTime = Date.now();
+
+    // 生成缩略图
+    const thumbnailFile = await imageCompression(file, THUMBNAIL_OPTIONS);
+
+    const duration = Date.now() - startTime;
+
+    console.log('✅ 缩略图生成完成!');
+    console.log('  缩略图大小:', (thumbnailFile.size / 1024).toFixed(2), 'KB');
+    console.log('  耗时:', duration, 'ms');
+
+    return thumbnailFile;
+  } catch (error) {
+    console.error('❌ 缩略图生成失败:', error);
+    // 失败时返回预览图
     return file;
   }
 };
@@ -83,6 +123,28 @@ export const compressImages = async (
 
   console.log('\n✅ 批量压缩完成!');
   return compressedFiles;
+};
+
+/**
+ * 同时生成预览图和缩略图
+ */
+export const generateImageVersions = async (
+  file: File
+): Promise<{
+  preview: File;
+  thumbnail: File;
+}> => {
+  console.log('🔄 生成图片版本...');
+
+  // 并发生成预览图和缩略图
+  const [preview, thumbnail] = await Promise.all([
+    compressImage(file),
+    generateThumbnail(file),
+  ]);
+
+  console.log('✅ 图片版本生成完成!');
+
+  return { preview, thumbnail };
 };
 
 /**

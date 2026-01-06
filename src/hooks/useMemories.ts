@@ -16,6 +16,13 @@ export const useMemories = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 上传进度状态
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+    fileName: string;
+  } | null>(null);
+
   // 加载记忆列表
   const loadMemories = useCallback(async () => {
     setLoading(true);
@@ -57,7 +64,10 @@ export const useMemories = () => {
       }
 
       console.log('📤 开始并发上传', files.length, '张照片');
-      await uploadPhotos(memoryId, files, user.id);
+      await uploadPhotos(memoryId, files, user.id, (current, total, fileName) => {
+        setUploadProgress({ current, total, fileName });
+      });
+      setUploadProgress(null);
       console.log('✅ 所有照片上传完成');
 
       // 3. 重新加载记忆列表
@@ -97,7 +107,10 @@ export const useMemories = () => {
 
       if (newFiles.length > 0) {
         console.log('📤 开始并发上传', newFiles.length, '张新照片');
-        await uploadPhotos(id, newFiles, user.id);
+        await uploadPhotos(id, newFiles, user.id, (current, total, fileName) => {
+          setUploadProgress({ current, total, fileName });
+        });
+        setUploadProgress(null);
         console.log('✅ 所有新照片上传完成');
       }
 
@@ -179,6 +192,7 @@ export const useMemories = () => {
     memories,
     loading,
     error,
+    uploadProgress,
     createMemory,
     updateMemory,
     deleteMemory,

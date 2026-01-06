@@ -10,7 +10,7 @@
 import { supabase, TABLES, BUCKETS } from '@/lib/supabase';
 import type { Memory } from '@/db/db';
 import { getCurrentUser } from '@/services/authService';
-import { compressImage } from '@/utils/imageCompression';
+import { generateImageVersions } from '@/utils/imageCompression';
 
 // ========== 类型定义 ==========
 
@@ -342,23 +342,26 @@ export const uploadPhoto = async (
     console.log('  原始大小:', (file.size / 1024).toFixed(2), 'KB');
     console.log('  显示顺序:', displayOrder);
 
-    // 1. 压缩图片
-    console.log('🔧 压缩图片中...');
-    const compressedFile = await compressImage(file);
-    console.log('  压缩后大小:', (compressedFile.size / 1024).toFixed(2), 'KB');
+    // 1. 生成三个版本:原图、预览图、缩略图
+    console.log('🔄 生成图片版本...');
+    const { preview: compressedFile, thumbnail } = await generateImageVersions(file);
+    console.log('  预览图大小:', (compressedFile.size / 1024).toFixed(2), 'KB');
+    console.log('  缩略图大小:', (thumbnail.size / 1024).toFixed(2), 'KB');
 
     // 2. 生成唯一文件名
     const photoId = crypto.randomUUID();
     const originalFileName = `${photoId}_original.jpg`;
-    const compressedFileName = `${photoId}_compressed.jpg`;
+    const previewFileName = `${photoId}_preview.jpg`;
+    const thumbnailFileName = `${photoId}_thumbnail.jpg`;
 
-    console.log('  生成文件名:', compressedFileName);
+    console.log('  生成文件名:', previewFileName);
 
-    // 3. 并发上传原图和压缩图
-    console.log('📤 并发上传原图和压缩图...');
-    const [originalUpload, compressedUpload] = await Promise.all([
+    // 3. 并发上传原图、预览图和缩略图
+    console.log('📤 并发上传原图、预览图和缩略图...');
+    const [originalUpload, previewUpload, thumbnailUpload] = await Promise.all([
       supabase.storage.from(BUCKETS.PHOTOS).upload(`${userId}/${memoryId}/${originalFileName}`, file),
-      supabase.storage.from(BUCKETS.PHOTOS).upload(`${userId}/${memoryId}/${compressedFileName}`, compressedFile)
+      supabase.storage.from(BUCKETS.PHOTOS).upload(`${userId}/${memoryId}/${previewFileName}`, compressedFile),
+      supabase.storage.from(BUCKETS.PHOTOS).upload(`${userId}/${memoryId}/${thumbnailFileName}`, thumbnail)
     ]);
 
     // 检查上传错误
@@ -366,23 +369,31 @@ export const uploadPhoto = async (
       console.error('  原图上传失败:', originalUpload.error);
       throw originalUpload.error;
     }
-    if (compressedUpload.error) {
-      console.error('  压缩图上传失败:', compressedUpload.error);
-      throw compressedUpload.error;
+    if (previewUpload.error) {
+      console.error('  预览图上传失败:', previewUpload.error);
+      throw previewUpload.error;
+    }
+    if (thumbnailUpload.error) {
+      console.error('  缩略图上传失败:', thumbnailUpload.error);
+      throw thumbnailUpload.error;
     }
 
     console.log('  原图上传成功:', originalUpload.data.path);
-    console.log('  压缩图上传成功:', compressedUpload.data.path);
+    console.log('  预览图上传成功:', previewUpload.data.path);
+    console.log('  缩略图上传成功:', thumbnailUpload.data.path);
 
     // 4. 获取公共URL
     const originalUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(originalUpload.data.path);
-    const compressedUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(compressedUpload.data.path);
+    const previewUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(previewUpload.data.path);
+    const thumbnailUrlData = supabase.storage.from(BUCKETS.PHOTOS).getPublicUrl(thumbnailUpload.data.path);
 
     const originalPublicUrl = originalUrlData.publicUrl;
-    const compressedPublicUrl = compressedUrlData.publicUrl;
+    const previewPublicUrl = previewUrlData.publicUrl;
+    const thumbnailPublicUrl = thumbnailUrlData.publicUrl;
 
     console.log('  原图URL:', originalPublicUrl.substring(0, 80) + '...');
-    console.log('  压缩图URL:', compressedPublicUrl.substring(0, 80) + '...');
+    console.log('  预览图URL:', previewPublicUrl.substring(0, 80) + '...');
+    console.log('  缩略图URL:', thumbnailPublicUrl.substring(0, 80) + '...');
 
     // 5. 获取图片尺寸
     const dimensions = await getImageDimensions(compressedFile);
@@ -395,11 +406,11 @@ export const uploadPhoto = async (
       .insert({
         memory_id: memoryId,
         user_id: userId,
-        storage_path: compressedUpload.data.path,
+        storage_path: previewUpload.data.path,
         original_storage_path: originalUpload.data.path,
-        public_url: compressedPublicUrl,
+        public_url: previewPublicUrl,
         original_public_url: originalPublicUrl,
-        thumbnail_url: null, // 暂时没有缩略图
+        thumbnail_url: thumbnailPublicUrl,
         mime_type: compressedFile.type,
         file_size: compressedFile.size,
         original_file_size: file.size,
@@ -496,7 +507,7 @@ export const deletePhoto = async (photoId: string): Promise<void> => {
       throw new Error('照片不存在');
     }
 
-    // 删除存储文件(压缩图、原图、缩略图)
+    // 删除存储文件(预览图、原图、缩略图)
     const filesToDelete = [
       photo.storage_path,
       photo.original_storage_path,
